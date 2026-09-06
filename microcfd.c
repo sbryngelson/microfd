@@ -10,6 +10,14 @@
 #ifdef FLOAT
 typedef float real;
 #define REAL_T MPI_FLOAT
+#define sqrt sqrtf
+#define fabs fabsf
+#define fmin fminf
+#define fmax fmaxf
+#define exp expf
+#define pow powf
+#define sin sinf
+#define cos cosf
 #else
 typedef double real;
 #define REAL_T MPI_DOUBLE

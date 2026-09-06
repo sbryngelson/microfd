@@ -4,7 +4,7 @@ import os, glob, shutil, subprocess, pathlib, numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXE = ROOT / "microcfd"
 MPIRUN = os.environ.get(
-    "MPIRUN", "mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca coll_hcoll_enable 0").split()
+    "MPIRUN", "mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca btl_smcuda_use_cuda_ipc 0 --mca coll_hcoll_enable 0").split()
 
 def run(name, np_=1, **opts):
     """Run microcfd in tests/run/<name>; return (diagnostics array, run directory).
