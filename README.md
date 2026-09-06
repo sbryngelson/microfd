@@ -5,7 +5,7 @@
 ![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
 ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD%20%7C%20Intel-lightgrey)
 
-How short can a very fast CFD code be? 
+How short can a (very) fast CFD solver be? 
 
 microfd is a 3D compressible Navier-Stokes solver in one ~200 line C file. About 1.2 ns per cell per step on an AMD MI350X and 3.9 on A100.
 So - faster than best reference times.
