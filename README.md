@@ -1,4 +1,10 @@
 # microfd
+
+[![ci](https://github.com/sbryngelson/microcfd/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/microcfd/actions/workflows/ci.yml)
+![C11](https://img.shields.io/badge/C11-single%20file-blue)
+![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
+![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD-green)
+
 How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in 237 lines of C: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
 
 ![Taylor-Green vortex at Re 1600, 256^3](tgv.webp)
@@ -9,6 +15,7 @@ Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA a
 ```
 make                     # NVIDIA
 make amd ARCH=gfx90a     # AMD
+make cpu                 # host, no offload: same answers, slowly
 mpirun -np 4 ./microfd case=tgv nx=256 ny=256 nz=256 tend=10 nout=500
 make test
 ```
@@ -24,6 +31,8 @@ make test
 | ndiag, nout | steps between diagnostics, field outputs | 10, never |
 
 Output: `out_NNNNNN.bin` with `rho u v w p` as `[5][nz][ny][nx]` doubles, plus an `.xmf` ParaView opens.
+
+`make cpu` drops `--offload-arch`, so the `target` regions run on the host and give the same answers. CI builds that way and runs `ic sod wall`, so a green badge covers the numerics and the MPI decomposition, not the offload path.
 
 ## Performance
 Taylor-Green, viscous, double precision, ns per cell per step:

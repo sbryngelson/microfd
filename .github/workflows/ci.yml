@@ -1,0 +1,33 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MPI and numpy
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libopenmpi-dev openmpi-bin python3-numpy
+
+      # No GPU on the runner: -fopenmp without --offload-arch runs the target
+      # regions on the host, which gives the same answers, just slowly.
+      - name: Build (host, no offload)
+        run: make cpu
+
+      - name: Physics and decomposition tests
+        env:
+          OMP_NUM_THREADS: 2
+          MPIRUN: mpirun --oversubscribe
+        run: cd tests && python3 test.py ic sod wall
+
+      - name: Line budget
+        run: |
+          n=$(wc -l < microfd.c)
+          echo "microfd.c is $n lines"
+          test "$n" -le 300 || { echo "::error::over the 300-line budget"; exit 1; }
