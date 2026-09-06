@@ -1,0 +1,34 @@
+name: sloc
+on:
+  push:
+    branches: [main]
+    paths: [microfd.c, .github/workflows/sloc.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: count source lines of microfd.c and render the badge
+        run: |
+          python3 - <<'PY'
+          import re
+          s = re.sub(r"/\*.*?\*/", "", open("microfd.c").read(), flags=re.S)
+          n = sum(1 for l in s.splitlines() if re.sub(r"//.*", "", l).strip())
+          L, R = "SLOC", str(n); lw, rw = 6.3 * len(L) + 10, 6.3 * len(R) + 10; w = lw + rw
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w:.0f}" height="20" role="img" aria-label="{L}: {R}">
+          <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
+          <clipPath id="r"><rect width="{w:.0f}" height="20" rx="3" fill="#fff"/></clipPath>
+          <g clip-path="url(#r)"><rect width="{lw:.0f}" height="20" fill="#555"/><rect x="{lw:.0f}" width="{rw:.0f}" height="20" fill="#007ec6"/><rect width="{w:.0f}" height="20" fill="url(#s)"/></g>
+          <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+          <text x="{lw/2:.1f}" y="15" fill="#010101" fill-opacity=".3">{L}</text><text x="{lw/2:.1f}" y="14">{L}</text>
+          <text x="{lw+rw/2:.1f}" y="15" fill="#010101" fill-opacity=".3">{R}</text><text x="{lw+rw/2:.1f}" y="14">{R}</text></g></svg>
+          '''
+          open("sloc.svg", "w").write(svg); print("SLOC", n)
+          PY
+      - name: commit the badge if it changed
+        run: |
+          git config user.name github-actions && git config user.email github-actions@github.com
+          git add sloc.svg && git diff --cached --quiet || (git commit -m "sloc badge" && git push)
