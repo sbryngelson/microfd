@@ -5,10 +5,11 @@
 ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD%20%7C%20Intel-lightgrey)
 [![License](https://img.shields.io/badge/License-Apache%202.0-purple.svg)](https://opensource.org/licenses/Apache-2.0)
 
-How short can a (very) fast CFD solver be? 
+How short can a (very) fast, parallel, GPU-native CFD solver be? 
 
-microfd is a 3D compressible Navier-Stokes solver in one ~200 line C file. About 1.2 ns per cell per step on an AMD MI350X and 2.4 on NV A100.
-So - faster than the best reference times.
+`microfd` is a 3D compressible Navier-Stokes solver in one ~200 line C file.
+About 1.2 ns per cell per step on an AMD MI350X and 2.4 on NV A100.
+So - faster than the best reference times to the author's knowledge.
 
 <img src="tgv.webp" width="450" alt="Taylor-Green vortex at Re 1600, 256^3, t = 0 to 10">
 
