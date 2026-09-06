@@ -1,34 +1,18 @@
 # microcfd
-
-A 3D compressible Navier-Stokes solver in one C file. Finite volume on a uniform
-grid, WENO5-Z reconstruction, HLLC flux, SSP-RK3, 2nd-order viscous terms
-(walls are reflective free-slip, adiabatic).
-Dimension-by-dimension with one Riemann solve per face, so formally 2nd order in
-multi-D with a WENO5 error constant (about 10x below a 2nd-order limiter). Runs on NVIDIA and
-AMD GPUs through OpenMP target offload, decomposed with MPI. Dependencies: a C
-compiler with OpenMP offload and MPI. Tests use Python + numpy.
+3D compressible Navier-Stokes in one C file: finite volume on a uniform grid, WENO5-Z, HLLC, SSP-RK3, 2nd-order viscous terms, reflective free-slip adiabatic walls. Dimension-by-dimension, one Riemann solve per face, so formally 2nd order in multi-D with a WENO5 error constant. OpenMP target offload on NVIDIA and AMD, MPI decomposition, double precision. Needs a C compiler with offload, MPI, and Python + numpy for tests.
 
 ## Build
-
-Put the compiler and MPI `bin` directories on `PATH` first (NVIDIA HPC SDK: `.../compilers/bin` and `.../comm_libs/mpi/bin`), or `make` picks up a different `mpicc`.
-
 ```
-make            # NVIDIA: nvc, ARCH=cc80 default
+make                             # NVIDIA: nvc, ARCH=cc80
 make amd ARCH=gfx90a
-MK="amd ARCH=gfx90a" make test   # build and test the AMD binary; switches rebuilds with the same MK
+MK="amd ARCH=gfx90a" make test
 ```
-
-One compile-time switch via `EXTRA` (use `make -B` to force the rebuild):
-`-DHOST_MPI` stages halos through host memory for MPI that is not GPU-aware.
-Precision is double throughout.
+`PATH` must hold the compiler and MPI `bin` directories. `EXTRA=-DHOST_MPI` stages halos through host memory; rebuild with `make -B`.
 
 ## Run
-
 ```
 mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc -np 4 ./microcfd case=tgv nx=256 ny=256 nz=256 tend=10 ndiag=20 nout=500
 ```
-
-Options are `key=value`. Unknown keys are an error.
 
 | key | meaning | default |
 |---|---|---|
@@ -39,55 +23,23 @@ Options are `key=value`. Unknown keys are an error.
 | bcx bcy bcz | 0 periodic, 1 wall, 2 outflow | case |
 | gamma, mu, pr | gas constants; mu=0 gives Euler | 1.4, case, 0.71 |
 | cfl, tend | CFL number, end time | 0.5, case |
-| ndiag | steps between diagnostics lines | 10 |
-| nout | steps between field outputs, 0 = never | 0 |
+| ndiag, nout | steps between diagnostics lines and field outputs; nout=0 never | 10, 0 |
 | axis | shock-tube axis for sod | 0 |
 
-Ranks pick GPUs by node-local rank modulo the visible device count, so
-`CUDA_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES` control placement; with one
-visible device all ranks share it, which is correct but slow and invalidates
-a scaling run.
-
-Diagnostics go to stdout: `step t dt KE enstrophy maxMach ns_per_cell_step`
-(mean KE and enstrophy per cell) (`maxMach` and `dt` are those of the
-previous step). Fields go to `out_NNNNNN.bin` as
-`[5][nz][ny][nx]` doubles (rho, u, v, w, p) with an
-`out_NNNNNN.xmf` wrapper that ParaView opens directly.
-
-On this machine (A100 PCIe, NVIDIA HPC SDK 25.11 HPC-X), direct GPU-to-GPU
-copies are corrupt whenever peer access is enabled, so any MPI transport that
-uses CUDA IPC returns garbage. Launch with
-`mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc`, which
-stages device buffers through pinned host memory inside UCX. Set `MPIRUN` to
-override what the tests use; `-DHOST_MPI` is the fallback for an MPI that is
-not GPU-aware at all.
+Unknown keys are an error. Diagnostics: `step t dt KE enstrophy maxMach ns/cell/step`, KE and enstrophy per cell, `dt` and `maxMach` from the previous step. Fields go to `out_NNNNNN.bin`, `[5][nz][ny][nx]` doubles rho u v w p, beside an `.xmf` ParaView opens. Ranks take GPUs by node-local rank modulo visible devices, so `CUDA_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES` place them. Peer GPU copies are corrupt on this A100 node, so the flags above exclude CUDA IPC; `MPIRUN` overrides the tests' launcher.
 
 ## Tests
-
-`make test` runs `tests/test.py` (`tgv3d` takes a few minutes; `switches`
-rebuilds the binary twice, one switch and the default restore).
-If `switches` is interrupted, run `make -B` to restore the default build.
-`python3 test.py perf` reports throughput and weak scaling on up to 4 GPUs.
+`make test` runs `tests/test.py`: `tgv3d` takes minutes, `switches` rebuilds twice, `make -B` restores after an interrupt. `python3 test.py perf` reports throughput and weak scaling.
 
 ## Performance
-
-TGV, WENO5-Z + HLLC + viscous, double precision, one full SSP-RK3 step. Fastest
-grid measured on each GPU; the published codes at the sizes they report. Larger
-grids amortize per-step overhead, so the grid column matters when comparing rows
-(microcfd on MI350X is 1.51 at 256^3 against 1.20 at 976^3).
+TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report.
 
 | code | GPU | grid | ns per cell per step | source |
 |---|---|---|---|---|
 | microcfd | MI350X | 976^3, 930M cells | 1.20 | `make amd ARCH=gfx950` |
+| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.02 | `python3 test.py perf` |
 | microcfd | MI210 | 576^3, 191M cells | 4.55 | `make amd ARCH=gfx90a` |
-| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.69 | `python3 test.py perf` |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
 
-Strong scaling on MI350X at 976^3: 1.20, 0.65, 0.34, 0.15 ns/cell/step on
-1, 2, 4, 8 GPUs.
-Weak scaling on A100: 4.69, 5.07 (93%), 6.16 (76%) per GPU on 1, 2, 4. The A100
-rows predate the fused divergence/update kernel; expect about 15% better.
-
-Memory is 240 B per cell (30 fields of 8 B: q, q1, w, and F for three
-directions), so a 64 GiB GPU holds roughly 630^3 and a 287 GiB GPU roughly 1050^3.
+Grid size shifts these: MI350X 1.51 at 256^3, A100 4.21 at 640^3, 262M cells, 63 of 80 GiB. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs. A100 weak scaling: 4.02, 4.39 (92%), 5.48 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
