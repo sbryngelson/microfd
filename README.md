@@ -4,7 +4,7 @@
 ![SLOC](sloc.svg)
 ![C11](https://img.shields.io/badge/C11-single%20file-blue)
 ![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
-![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD-green)
+![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD-lightgrey)
 
 How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in one short C file: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
 
