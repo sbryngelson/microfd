@@ -2,7 +2,8 @@
 MPICC  ?= mpicc
 ARCH   ?= cc80
 NVFLAGS  = -O3 -mp=gpu -gpu=$(ARCH),mem:separate
-AMDFLAGS = -O3 -fopenmp --offload-arch=$(ARCH)
+# assume-* keep the face kernel in SPMD mode; without them clang emits Generic-SPMD at 64 threads (30x slower)
+AMDFLAGS = -O3 -fopenmp --offload-arch=$(ARCH) -fopenmp-assume-no-nested-parallelism -fopenmp-assume-no-thread-state
 EXTRA  ?=
 
 nvidia: microcfd.c
