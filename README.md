@@ -62,7 +62,7 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 |---|---|---|---|---|
 | microfd | AMD | MI350X | 976^3 | 1.20 |
 | microfd | AMD | MI300X | 256^3 | 1.41 |
-| microfd | NVIDIA | H200 | 740^3 | 2.45 |
+| microfd | NVIDIA | H200 | 256^3 | 2.36 |
 | microfd | NVIDIA | A100 80GB | 256^3 | 3.92 |
 | microfd | AMD | MI250X, one GCD | 592^3 | 4.51 |
 | microfd | AMD | MI210 | 576^3 | 4.55 |
