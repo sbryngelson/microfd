@@ -200,6 +200,7 @@ int main(int argc,char**argv){
     if(sscanf(argv[a],"%31[^=]=%lf",k,&v)<1) die("bad argument");
     while(i<nopt&&strcmp(opt[i].k,k)) i++;
     if(i==nopt) die("unknown key"); if(opt[i].r) *opt[i].r=v; else if(opt[i].i) *opt[i].i=(int)v; }
+  if(g.ndiag<1) g.ndiag=1;                    // after parsing: ndiag=0 would divide by zero in the step test
 
   int np,per[3],lr; MPI_Comm loc; MPI_Comm_size(MPI_COMM_WORLD,&np); MPI_Dims_create(np,3,g.dims);
   for(int d=0;d<3;d++) per[d]=g.bc[d]==0;
