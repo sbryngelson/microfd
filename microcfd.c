@@ -107,7 +107,7 @@ static void prim(const real*q){                                        // conser
 }
 
 static void face(int d){                                               // flux through the face c+1/2 normal to d, stored in F at cell c
-  LOCALS; const real gam=g.gamma, h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
+  LOCALS; const real gam=g.gamma, mu=g.mu, kap=g.mu*g.gamma/((g.gamma-1)*g.pr), h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
   const int i0=NG-(d==0), j0=NG-(d==1), k0=NG-(d==2);
   FOR3(i0,j0,k0,){
     const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); const int P[5]={0,1+d,1+(d+1)%3,1+(d+2)%3,4};   // face-normal frame
@@ -116,7 +116,15 @@ static void face(int d){                                               // flux t
     if(L[0]<=0||L[4]<=0) for(int v=0;v<5;v++) L[v]=w[P[v]*nc+c];        // positivity fallback: first order
     if(R[0]<=0||R[4]<=0) for(int v=0;v<5;v++) R[v]=w[P[v]*nc+c+s];
     RIEMANN(L,R,gam,f);
-    (void)h0; (void)h1; (void)h2;
+    if(mu>0){                                                            // viscous stress and heat flux at the face, 2nd-order central
+      const long st[3]={1,sx,sy}; const real h[3]={h0,h1,h2}; real du[3][3], div=0;
+      for(int a=0;a<3;a++) for(int b=0;b<3;b++){ const real*u=w+(1+a)*nc+c; const long t=st[b];
+        du[a][b]= b==d ? (u[s]-u[0])/h[d] : (u[t]-u[-t]+u[s+t]-u[s-t])/(4*h[b]); }  // normal: two cells; tangential: averaged central
+      for(int a=0;a<3;a++) div+=du[a][a];
+      f[4]-=kap*(w[4*nc+c+s]/w[c+s]-w[4*nc+c]/w[c])/h[d];                              // heat flux with T = p/rho
+      for(int m=0;m<3;m++){ const int a=(d+m)%3; const real tau=mu*(du[a][d]+du[d][a]-(a==d)*C(2./3)*div);
+        f[1+m]-=tau; f[4]-=tau*C(.5)*(w[(1+a)*nc+c]+w[(1+a)*nc+c+s]); }
+    }
     for(int v=0;v<5;v++) F[P[v]*nc+c]=f[v];
   }
 }

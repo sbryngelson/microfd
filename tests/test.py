@@ -97,4 +97,20 @@ def mpi():
     ok(np.array_equal(q1, run("mpi8", 8, **o)[2]), "1 rank == 8 ranks (2x2x2)")
     print("PASS mpi")
 
-for t in sys.argv[1:] or ["ic", "sod", "vortex", "wall", "mpi"]: globals()[t]()
+def visc():   # 2D TGV Re=10: KE decays as exp(-4 nu t) to 1 percent; 3D TGV at Re=0.1 is Stokes flow: exp(-6 nu t) to 0.2 percent
+    d = run("tgv2d", 1, case="tgv2d", nx=64, ny=64, nz=4, nout=10**6, ndiag=10**6)[0]
+    r, ex = d[-1, 3] / d[0, 3], np.exp(-0.4); print(f"2D KE(1)/KE(0) = {r:.5f}, exact {ex:.5f}"); ok(abs(r / ex - 1) < 0.01, "2D viscous decay")
+    d = run("tgv3d_stokes", 1, case="tgv", mu=10, nx=64, ny=64, nz=64, tend=0.02, ndiag=10**6)[0]
+    r, ex = d[-1, 3] / d[0, 3], np.exp(-1.2); print(f"3D KE ratio = {r:.5f}, exact {ex:.5f}"); ok(abs(r / ex - 1) < 2e-3, "3D Stokes decay"); print("PASS visc")
+
+def tgv3d():   # 3D Taylor-Green Re=1600 at 128^3 vs the 512^3 spectral reference (minutes on one A100)
+    ref = np.loadtxt(R / "ref/spectral_Re1600_512.gdiag")   # t, KE, -dKE/dt, enstrophy
+    d = run("tgv3d", 1, case="tgv", nx=128, ny=128, nz=128, tend=10, nout=10**6, ndiag=20)[0]
+    t, eps = d[:, 1], -np.gradient(d[:, 3], d[:, 1]); ip, ir = eps.argmax(), ref[:, 2].argmax()
+    print(f"peak dissipation {eps[ip]:.5f} at t={t[ip]:.2f}; reference {ref[ir, 2]:.5f} at t={ref[ir, 0]:.2f}")
+    ok(abs(eps[ip] / ref[ir, 2] - 1) < 0.10, "peak dissipation within 10 percent of the spectral reference")
+    ok(abs(t[ip] - ref[ir, 0]) < 1.0, "peak time within 1.0")
+    dev = np.abs(np.interp(t, ref[:, 0], ref[:, 2]) - eps).max(); print(f"max |eps - eps_ref| over [0,10]: {dev:.2e}")
+    ok(dev < 2.5e-3, "dissipation curve within 2.5e-3 of the reference (128^3 dissipates early)"); print("PASS tgv3d")
+
+for t in sys.argv[1:] or ["ic", "sod", "vortex", "wall", "mpi", "visc", "tgv3d"]: globals()[t]()
