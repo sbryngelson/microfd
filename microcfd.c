@@ -36,7 +36,7 @@ static struct {                                // all solver state; kernels copy
   int N[3], n[3], e[3], bc[3], dims[3], coords[3], nb[3][2], rank, ndiag, nout, axis;
   long sx, sy; size_t nc, nbuf;                // strides (x stride is 1), padded cell count, halo buffer length
   real L[3], o[3], h[3], gamma, mu, pr, cfl, tend, t, mach;
-  real *q, *q1, *rhs, *w, *F, *sbuf[2], *rbuf[2];
+  real *q, *q1, *w, *F, *sbuf[2], *rbuf[2];      // F holds all three directions: [d][NV][nc]
   MPI_Comm comm;
 } g;
 
@@ -109,7 +109,7 @@ static void prim(const real*q){                                        // conser
 }
 
 static void face(int d){                                               // flux through the face c+1/2 normal to d, stored in F at cell c
-  LOCALS; const real gam=g.gamma, mu=g.mu, kap=mu*gam/((gam-1)*g.pr), h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
+  LOCALS; const real gam=g.gamma, mu=g.mu, kap=mu*gam/((gam-1)*g.pr), h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F+(size_t)d*NV*nc;
   const int i0=NG-(d==0), j0=NG-(d==1), k0=NG-(d==2);
   FOR3(i0,j0,k0,){
     const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); const int P[5]={0,1+d,1+(d+1)%3,1+(d+2)%3,4};   // face-normal frame
@@ -131,15 +131,11 @@ static void face(int d){                                               // flux t
   }
 }
 
-static void divergence(int d){                                         // rhs -= dF/dx_d over the interior
-  LOCALS; const real*F=g.F; real*rhs=g.rhs; const real h=g.h[d];
-  FOR3(NG,NG,NG,){ const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); for(int v=0;v<5;v++) rhs[v*nc+c]-=(F[v*nc+c]-F[v*nc+c-s])/h; }
-}
-
-static void update(real*out,real a,const real*qa,real b,const real*qb,real c){   // out = a qa + b qb + c rhs, then rhs = 0
-  const size_t m=NV*g.nc; real*rhs=g.rhs;
-  #pragma omp target teams loop
-  for(size_t t=0;t<m;t++){ out[t]=a*qa[t]+b*qb[t]+c*rhs[t]; rhs[t]=0; }
+static void update(real*out,real a,const real*qa,real b,const real*qb,real c){   // out = a qa + b qb - c div F; the divergence is fused in, so no rhs array
+  LOCALS; const real*F=g.F; const real h0=g.h[0],h1=g.h[1],h2=g.h[2]; const size_t m=NV*nc;
+  FOR3(NG,NG,NG,){ const long ci=IDX(i,j,k);
+    for(int v=0;v<5;v++){ const size_t o=v*nc+ci;
+      out[o]=a*qa[o]+b*qb[o]-c*((F[o]-F[o-1])/h0+(F[m+o]-F[m+o-sx])/h1+(F[2*m+o]-F[2*m+o-sy])/h2); } }
 }
 
 static real wavemax(void){                                             // max of sum_d (|u_d|+a)/h_d + 2 nu sum_d 1/h_d^2; also max Mach
@@ -184,7 +180,7 @@ static void halo(real*q){
     for(int s=0;s<2;s++) g.nb[d][s]==MPI_PROC_NULL ? slab(q,d,s,g.bc[d]==1?WALL:OUTFLOW,0) : slab(q,d,s,UNPACK,g.rbuf[s]);
   }
 }
-static void rhs_eval(real*q){ halo(q); prim(q); for(int d=0;d<3;d++){ face(d); divergence(d); } }
+static void rhs_eval(real*q){ halo(q); prim(q); for(int d=0;d<3;d++) face(d); }
 
 // ---- diagnostics and output
 static void diag(int step,real dt,double wall){                        // mean kinetic energy and enstrophy, max Mach, ns per cell per step
@@ -247,15 +243,15 @@ int main(int argc,char**argv){
   MPI_Comm_split_type(MPI_COMM_WORLD,MPI_COMM_TYPE_SHARED,0,MPI_INFO_NULL,&loc); MPI_Comm_rank(loc,&lr);
   if(omp_get_num_devices()) omp_set_default_device(lr%omp_get_num_devices());
 
-  const size_t m=NV*g.nc; real**arr[]={&g.q,&g.q1,&g.rhs,&g.w,&g.F,&g.sbuf[0],&g.sbuf[1],&g.rbuf[0],&g.rbuf[1]};
-  for(int i=0;i<9;i++) if(!(*arr[i]=calloc(i<5?m:g.nbuf,sizeof(real)))) die("out of memory");
+  const size_t m=NV*g.nc; real**arr[]={&g.q,&g.q1,&g.w,&g.F,&g.sbuf[0],&g.sbuf[1],&g.rbuf[0],&g.rbuf[1]};
+  for(int i=0;i<8;i++) if(!(*arr[i]=calloc(i<3?m:i==3?3*m:g.nbuf,sizeof(real)))) die("out of memory");
   { LOCALS; for(int k=0;k<g.e[2];k++) for(int j=0;j<g.e[1];j++) for(int i=0;i<g.e[0];i++){   // IC on the padded block, ghosts included
       real p[5],x[3]; const int id[3]={i,j,k}; const long c=IDX(i,j,k);
       for(int d=0;d<3;d++) x[d]=g.o[d]+g.h[d]*(g.coords[d]*g.n[d]+id[d]-NG+C(.5));
       cs->ic(x[0],x[1],x[2],p); g.q[c]=p[0]; for(int v=1;v<4;v++) g.q[v*nc+c]=p[0]*p[v];
       g.q[4*nc+c]=p[4]/(g.gamma-1)+C(.5)*p[0]*(p[1]*p[1]+p[2]*p[2]+p[3]*p[3]); } }
-  real *q=g.q,*q1=g.q1,*rhs=g.rhs,*w=g.w,*F=g.F,*s0=g.sbuf[0],*s1=g.sbuf[1],*r0=g.rbuf[0],*r1=g.rbuf[1]; const size_t nb=g.nbuf;
-  #pragma omp target enter data map(to:q[0:m],rhs[0:m]) map(alloc:q1[0:m],w[0:m],F[0:m],s0[0:nb],s1[0:nb],r0[0:nb],r1[0:nb])
+  real *q=g.q,*q1=g.q1,*w=g.w,*F=g.F,*s0=g.sbuf[0],*s1=g.sbuf[1],*r0=g.rbuf[0],*r1=g.rbuf[1]; const size_t nb=g.nbuf, m3=3*m;
+  #pragma omp target enter data map(to:q[0:m]) map(alloc:q1[0:m],w[0:m],F[0:m3],s0[0:nb],s1[0:nb],r0[0:nb],r1[0:nb])
 
   real dt=0; int step=0, ls=0; double tl=MPI_Wtime();
   for(;;){
