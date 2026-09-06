@@ -17,7 +17,7 @@ jobs:
           import re
           s = re.sub(r"/\*.*?\*/", "", open("microfd.c").read(), flags=re.S)
           n = sum(1 for l in s.splitlines() if re.sub(r"//.*", "", l).strip())
-          L, R = "SLOC", str(n); lw, rw = 6.3 * len(L) + 10, 6.3 * len(R) + 10; w = lw + rw
+          L, R = "Lines of Code", str(n); lw, rw = 6.3 * len(L) + 10, 6.3 * len(R) + 10; w = lw + rw
           svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w:.0f}" height="20" role="img" aria-label="{L}: {R}">
           <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
           <clipPath id="r"><rect width="{w:.0f}" height="20" rx="3" fill="#fff"/></clipPath>
