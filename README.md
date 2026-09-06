@@ -58,19 +58,20 @@ Output: `out_NNNNNN.bin` with `rho u v w p` as `[5][nz][ny][nx]` doubles, plus a
 
 Taylor-Green, viscous, double precision, ns per cell per step:
 
-| | GPU | grid | ns |
-|---|---|---|---|
-| microfd | MI350X | 976^3 | 1.20 |
-| microfd | MI300X | 256^3 | 1.41 |
-| microfd | A100 80GB | 256^3 | 3.92 |
-| microfd | MI250X, one GCD | 592^3 | 4.51 |
-| microfd | MI210 | 576^3 | 4.55 |
-| microfd | GPU Max 1100 | 512^3 | 5.13 |
-| PyFR 2.0.3, compressible, p7 tets | GH200 | 13.9M elements, 120 DoF each | 80 per element |
-| MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 |
-| STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 |
-| nekRS, incompressible, p7 | A100 40GB | 2.5M points | 16.9 |
-| JAX-Fluids 2.0, WENO5-Z + HLLC | A100 | 8 × 320^3 | 58.0 |
+| | vendor | GPU | grid | ns |
+|---|---|---|---|---|
+| microfd | AMD | MI350X | 976^3 | 1.20 |
+| microfd | AMD | MI300X | 256^3 | 1.41 |
+| microfd | NVIDIA | H200 | 740^3 | 2.45 |
+| microfd | NVIDIA | A100 80GB | 256^3 | 3.92 |
+| microfd | AMD | MI250X, one GCD | 592^3 | 4.51 |
+| microfd | AMD | MI210 | 576^3 | 4.55 |
+| microfd | Intel | GPU Max 1100 | 512^3 | 5.13 |
+| PyFR 2.0.3, compressible, p7 tets | NVIDIA | GH200 | 13.9M elements, 120 DoF each | 80 per element |
+| MFC, normalized to 5 PDEs | NVIDIA | A100 | 8M cells | 8.9 |
+| STREAmS-2, WENO5 | NVIDIA | A100 40GB | 33.6M points | 14.2 |
+| nekRS, incompressible, p7 | NVIDIA | A100 40GB | 2.5M points | 16.9 |
+| JAX-Fluids 2.0, WENO5-Z + HLLC | NVIDIA | A100 | 8 × 320^3 | 58.0 |
 
 Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation, four per step assumed), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are tokei code lines of each solver's source directory.
 
