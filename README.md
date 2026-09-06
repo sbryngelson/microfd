@@ -64,13 +64,13 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 | microfd | A100 80GB | 256^3 | 3.92 |
 | microfd | MI250X, one GCD | 592^3 | 4.51 |
 | microfd | MI210 | 576^3 | 4.55 |
-| PyFR 2.0.3, compressible, p7 tets | GH200 | 13.9M elements | 0.67 per DoF |
+| PyFR 2.0.3, compressible, p7 tets | GH200 | 13.9M elements, 120 DoF each | 0.67 per DoF, 80 per element |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 |
 | nekRS, incompressible, p7 | A100 40GB | 2.5M points | 16.9 |
 | JAX-Fluids 2.0, WENO5-Z + HLLC | A100 | 8 × 320^3 | 58.0 |
 
-Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation; four per step assumed), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are tokei code lines of each solver's source directory.
+Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation, four per step assumed; a high-order DoF is not a grid cell, so both ends are given), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are tokei code lines of each solver's source directory.
 
 Each step moves about 1.7 KB per cell through memory (three stages of primitives, fluxes and the update), so 1.20 ns is 1.4 TB/s sustained on the MI350X and 3.92 ns is 440 GB/s on the A100: 18 and 23 percent of peak bandwidth.
 
