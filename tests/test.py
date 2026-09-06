@@ -1,8 +1,7 @@
 # microcfd tests: python3 test.py [ic sod vortex wall mpi visc tgv3d]
 import os, sys, glob, shutil, subprocess, pathlib, numpy as np
 R = pathlib.Path(__file__).resolve().parent
-MPIRUN = os.environ.get("MPIRUN", "mpirun --mca pml ob1 --mca btl smcuda,self,vader"
-                        " --mca btl_smcuda_use_cuda_ipc 0 --mca coll_hcoll_enable 0").split()
+MPIRUN = os.environ.get("MPIRUN", "mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc").split()
 ctr = lambda o, L, n: o + L / n * (np.arange(n) + 0.5)
 def ok(c, m): print(("ok: " if c else "FAIL: ") + m); c or sys.exit(1)
 
@@ -116,4 +115,30 @@ def tgv3d():   # 3D Taylor-Green Re=1600 at 128^3 vs the 512^3 spectral referenc
     dev = np.abs(np.interp(t, ref[:, 0], ref[:, 2]) - eps).max(); print(f"max |eps - eps_ref| over [0,10]: {dev:.2e}")
     ok(dev < 2.5e-3, "dissipation curve within 2.5e-3 of the reference (128^3 dissipates early)"); print("PASS tgv3d")
 
-for t in sys.argv[1:] or ["ic", "sod", "vortex", "wall", "mpi", "visc", "tgv3d"]: globals()[t]()
+def sedov():   # 64^3 blast to t=0.1: finite, positive, and mass conserved (nothing reaches the outflow boundary yet)
+    _, a, b = run("sedov", 1, case="sedov", nx=64, ny=64, nz=64, nout=10**6, ndiag=10**6)
+    ok(np.isfinite(b).all() and b[0].min() > 0 and b[4].min() > 0, "finite fields, positive density and pressure")
+    ok(abs(b[0].sum() / a[0].sum() - 1) < 1e-10, "mass conserved"); print("PASS sedov")
+
+def switches():   # every compile-time switch builds and passes Sod at a looser tolerance; the default build is restored
+    mk = lambda x: subprocess.run(["make", "-B", "-C", str(R.parent), f"EXTRA={x}"], check=True, stdout=subprocess.DEVNULL)
+    try:
+        for x, tol in (("-DMUSCL", "2e-2"), ("-DRUSANOV", "1.5e-2"), ("-DHOST_MPI", "1e-2"), ("-DFLOAT", "1.5e-2")):
+            mk(x)
+            if x == "-DFLOAT":   # float32 output files: check the diagnostics only
+                ok(np.isfinite(run("sod_float", 1, case="sod", nx=200, ny=4, nz=4, ndiag=10**6)[0]).all(), "FLOAT run finite"); continue
+            p = subprocess.run([sys.executable, "test.py", "sod"], cwd=R, env=dict(os.environ, SOD_TOL=tol), text=True, capture_output=True)
+            print(f"[{x}] " + p.stdout.strip().splitlines()[-1]); ok(p.returncode == 0, x)
+    finally: mk("")
+    print("PASS switches")
+
+def perf():   # ns per cell per step on one GPU at 256^3, and weak scaling to 2 and 4 GPUs at 256^3 per GPU
+    def ns(np_, **g):   # skip the warm-up rows and the partial last interval; column is per global cell, scale to per GPU
+        d = run(f"perf{np_}", np_, case="tgv", tend=0.1, ndiag=10, **g)[0]; return d[2:-1, 6].mean() * np_, int(d[-1, 0])
+    t1, steps = ns(1, nx=256, ny=256, nz=256); print(f"1 GPU, 256^3, {steps} steps: {t1:.2f} ns/cell/step = {1e3/t1:.0f} M cell-updates/s")
+    t2, t4 = ns(2, nx=512, ny=256, nz=256, px=2)[0], ns(4, nx=512, ny=512, nz=256, px=2, py=2)[0]
+    print(f"weak scaling, 256^3 per GPU: 1 GPU {t1:.2f}, 2 GPUs {t2:.2f} ({t1/t2*100:.0f}%), 4 GPUs {t4:.2f} ({t1/t4*100:.0f}%) ns/cell/step per GPU")
+    print("reference: STREAmS-2 WENO5 14.2, MFC WENO5+HLLC normalized to 5 PDEs 8.9, goal < 7")
+    ok(t1 < 12, "must-level target: below 12 ns per cell per step"); print("PASS perf")
+
+for t in sys.argv[1:] or ["ic", "sod", "sedov", "vortex", "wall", "mpi", "visc", "tgv3d", "switches"]: globals()[t]()
