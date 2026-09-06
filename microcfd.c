@@ -50,6 +50,46 @@ static const Case cases[]={
   {"sedov", sedov, {-1.2,-1.2,-1.2},   {2.4,2.4,2.4},         0,         C(.1), {2,2,2}},
   {"vortex",vortex,{0,0,0},            {10,10,10},            0,         10,   {0,0,0}}};
 
+// ---- device helpers: reconstruction to the right face of cell c from the 5-cell stencil a..e, and Riemann solvers in the face-normal frame
+#pragma omp declare target
+static real weno5(real a,real b,real c,real d,real e){                 // WENO5-Z
+  real b0=C(13./12)*(a-2*b+c)*(a-2*b+c)+C(.25)*(a-4*b+3*c)*(a-4*b+3*c);
+  real b1=C(13./12)*(b-2*c+d)*(b-2*c+d)+C(.25)*(b-d)*(b-d);
+  real b2=C(13./12)*(c-2*d+e)*(c-2*d+e)+C(.25)*(3*c-4*d+e)*(3*c-4*d+e);
+  real t=fabs(b0-b2), w0=C(.1)*(1+t/(b0+EPS)), w1=C(.6)*(1+t/(b1+EPS)), w2=C(.3)*(1+t/(b2+EPS));
+  return (w0*(2*a-7*b+11*c)+w1*(-b+5*c+2*d)+w2*(2*c+5*d-e))/(6*(w0+w1+w2));
+}
+static real muscl(real a,real b,real c,real d,real e){                 // van Leer limiter
+  real dm=c-b, dp=d-c, s=dm*dp; (void)a; (void)e; return c+(s>0?s/(dm+dp):0);
+}
+static void flux1(const real*S,real gam,real*U,real*f){                // conserved state and flux of one primitive state
+  real r=S[0],u=S[1],p=S[4]; U[0]=r; U[1]=r*u; U[2]=r*S[2]; U[3]=r*S[3]; U[4]=p/(gam-1)+C(.5)*r*(u*u+S[2]*S[2]+S[3]*S[3]);
+  for(int v=0;v<5;v++) f[v]=u*U[v]+(v==1)*p+(v==4)*p*u;
+}
+static void hllc(const real*L,const real*R,real gam,real*f){           // HLLC with Davis wave speeds
+  real rl=L[0],ul=L[1],pl=L[4],rr=R[0],ur=R[1],pr=R[4], cl=sqrt(gam*pl/rl),cr=sqrt(gam*pr/rr);
+  real sl=fmin(ul-cl,ur-cr), sr=fmax(ul+cl,ur+cr), sm=(pr-pl+rl*ul*(sl-ul)-rr*ur*(sr-ur))/(rl*(sl-ul)-rr*(sr-ur));
+  int left=sm>=0; const real*S=left?L:R; real s=left?sl:sr, U[5]; flux1(S,gam,U,f);
+  if(left?sl<0:sr>0){ real r=S[0],u=S[1],p=S[4],k=(s-u)/(s-sm), Us[5]={r*k,r*k*sm,r*k*S[2],r*k*S[3],k*(U[4]+(sm-u)*(r*sm+p/(s-u)))};
+    for(int v=0;v<5;v++) f[v]+=s*(Us[v]-U[v]); }
+}
+static void rusanov(const real*L,const real*R,real gam,real*f){
+  real Ul[5],Ur[5],fl[5],fr[5]; flux1(L,gam,Ul,fl); flux1(R,gam,Ur,fr);
+  real s=fmax(fabs(L[1])+sqrt(gam*L[4]/L[0]),fabs(R[1])+sqrt(gam*R[4]/R[0]));
+  for(int v=0;v<5;v++) f[v]=C(.5)*(fl[v]+fr[v]-s*(Ur[v]-Ul[v]));
+}
+#pragma omp end declare target
+#ifdef MUSCL
+#define RECON muscl
+#else
+#define RECON weno5
+#endif
+#ifdef RUSANOV
+#define RIEMANN rusanov
+#else
+#define RIEMANN hllc
+#endif
+
 // ---- kernels
 static void prim(const real*q){                                        // conserved -> primitive over the whole padded block
   LOCALS; real*w=g.w; const real gm=g.gamma-1;
@@ -57,6 +97,76 @@ static void prim(const real*q){                                        // conser
   for(size_t c=0;c<nc;c++){ real r=q[c],u=q[nc+c]/r,v=q[2*nc+c]/r,s=q[3*nc+c]/r;
     w[c]=r; w[nc+c]=u; w[2*nc+c]=v; w[3*nc+c]=s; w[4*nc+c]=gm*(q[4*nc+c]-C(.5)*r*(u*u+v*v+s*s)); }
 }
+
+static void face(int d){                                               // flux through the face c+1/2 normal to d, stored in F at cell c
+  LOCALS; const real gam=g.gamma, h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
+  const int i0=NG-(d==0), j0=NG-(d==1), k0=NG-(d==2);
+  FOR3(i0,j0,k0,){
+    const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); const int P[5]={0,1+d,1+(d+1)%3,1+(d+2)%3,4};   // face-normal frame
+    real L[5],R[5],f[5];
+    for(int v=0;v<5;v++){ const real*u=w+P[v]*nc+c; L[v]=RECON(u[-2*s],u[-s],u[0],u[s],u[2*s]); R[v]=RECON(u[3*s],u[2*s],u[s],u[0],u[-s]); }
+    if(L[0]<=0||L[4]<=0) for(int v=0;v<5;v++) L[v]=w[P[v]*nc+c];        // positivity fallback: first order
+    if(R[0]<=0||R[4]<=0) for(int v=0;v<5;v++) R[v]=w[P[v]*nc+c+s];
+    RIEMANN(L,R,gam,f);
+    (void)h0; (void)h1; (void)h2;
+    for(int v=0;v<5;v++) F[P[v]*nc+c]=f[v];
+  }
+}
+
+static void divergence(int d){                                         // rhs -= dF/dx_d over the interior
+  LOCALS; const real*F=g.F; real*rhs=g.rhs; const real h=g.h[d];
+  FOR3(NG,NG,NG,){ const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); for(int v=0;v<5;v++) rhs[v*nc+c]-=(F[v*nc+c]-F[v*nc+c-s])/h; }
+}
+
+static void update(real*out,real a,const real*qa,real b,const real*qb,real c){   // out = a qa + b qb + c rhs, then rhs = 0
+  const size_t m=NV*g.nc; real*rhs=g.rhs;
+  #pragma omp target teams loop
+  for(size_t t=0;t<m;t++){ out[t]=a*qa[t]+b*qb[t]+c*rhs[t]; rhs[t]=0; }
+}
+
+static real wavemax(void){                                             // max of sum_d (|u_d|+a)/h_d + 2 nu sum_d 1/h_d^2; also max Mach
+  LOCALS; const real*q=g.q; const real gam=g.gamma,mu=g.mu,h0=g.h[0],h1=g.h[1],h2=g.h[2]; real m=0,ma=0;
+  FOR3(NG,NG,NG,reduction(max:m,ma)){ const long c=IDX(i,j,k); real r=q[c],u=q[nc+c]/r,v=q[2*nc+c]/r,s=q[3*nc+c]/r;
+    real a=sqrt(gam*(gam-1)*(q[4*nc+c]/r-C(.5)*(u*u+v*v+s*s)));
+    m=fmax(m,(fabs(u)+a)/h0+(fabs(v)+a)/h1+(fabs(s)+a)/h2+2*mu/r*(1/(h0*h0)+1/(h1*h1)+1/(h2*h2))); ma=fmax(ma,sqrt(u*u+v*v+s*s)/a); }
+  real loc[2]={m,ma}; MPI_Allreduce(MPI_IN_PLACE,loc,2,REAL_T,MPI_MAX,g.comm); g.mach=loc[1]; return loc[0];
+}
+
+// ---- halo exchange: x, then y, then z, so edges and corners arrive through the face slabs
+enum {PACK,UNPACK,WALL,OUTFLOW};
+static void slab(real*q,int d,int side,int mode,real*buf){             // NG-layer slab normal to d at side 0 (low) or 1 (high)
+  LOCALS; const int e0=d==0?NG:g.e[0], e1=d==1?NG:g.e[1], e2=d==2?NG:g.e[2], N=g.n[d]; const size_t m=(size_t)NV*e0*e1*e2;
+  #pragma omp target teams loop
+  for(size_t t=0;t<m;t++){
+    int x[3]={(int)(t%e0),(int)(t/e0%e1),(int)(t/e0/e1%e2)}; const int v=(int)(t/e0/e1/e2), l=x[d];
+    const int gi=side?N+NG+l:NG-1-l, ii=side?N+NG-1-l:NG+l, bi=side?N+NG-1:NG;   // ghost cell, mirror cell, boundary cell along d
+    x[d]=mode==PACK?ii:gi; const long c=v*nc+IDX(x[0],x[1],x[2]);
+    if(mode==PACK) buf[t]=q[c]; else if(mode==UNPACK) q[c]=buf[t];
+    else { x[d]=mode==WALL?ii:bi; q[c]=q[v*nc+IDX(x[0],x[1],x[2])]*(mode==WALL&&v==1+d?-1:1); }
+  }
+}
+static void exchange(int d,size_t m,real*s0,real*s1,real*r0,real*r1){   // low slab goes down (tag 0), high slab goes up (tag 1)
+  MPI_Request r[4];
+  MPI_Irecv(r1,m,REAL_T,g.nb[d][1],0,g.comm,r); MPI_Irecv(r0,m,REAL_T,g.nb[d][0],1,g.comm,r+1);
+  MPI_Isend(s0,m,REAL_T,g.nb[d][0],0,g.comm,r+2); MPI_Isend(s1,m,REAL_T,g.nb[d][1],1,g.comm,r+3);
+  MPI_Waitall(4,r,MPI_STATUSES_IGNORE);
+}
+static void halo(real*q){
+  real *s0=g.sbuf[0],*s1=g.sbuf[1],*r0=g.rbuf[0],*r1=g.rbuf[1];
+  for(int d=0;d<3;d++){ const size_t m=NV*NG*(g.nc/g.e[d]);
+    slab(q,d,0,PACK,s0); slab(q,d,1,PACK,s1);
+#ifdef HOST_MPI
+    #pragma omp target update from(s0[0:m],s1[0:m])
+    exchange(d,m,s0,s1,r0,r1);
+    #pragma omp target update to(r0[0:m],r1[0:m])
+#else
+    #pragma omp target data use_device_addr(s0,s1,r0,r1)
+    exchange(d,m,s0,s1,r0,r1);
+#endif
+    for(int s=0;s<2;s++) g.nb[d][s]==MPI_PROC_NULL ? slab(q,d,s,g.bc[d]==1?WALL:OUTFLOW,0) : slab(q,d,s,UNPACK,g.rbuf[s]);
+  }
+}
+static void rhs_eval(real*q){ halo(q); prim(q); for(int d=0;d<3;d++){ face(d); divergence(d); } }
 
 // ---- diagnostics and output
 static void diag(int step,real dt,double wall){                        // mean kinetic energy and enstrophy, max Mach, ns per cell per step
@@ -131,9 +241,13 @@ int main(int argc,char**argv){
 
   real dt=0; int step=0; double tl=MPI_Wtime();
   for(;;){
-    if(step%g.ndiag==0||g.t>=g.tend){ prim(g.q); diag(step,dt,(MPI_Wtime()-tl)/g.ndiag); tl=MPI_Wtime(); if(g.nout&&(step%g.nout==0||g.t>=g.tend)) output(step); }
+    if(step%g.ndiag==0||g.t>=g.tend){ halo(g.q); prim(g.q); diag(step,dt,(MPI_Wtime()-tl)/g.ndiag); tl=MPI_Wtime(); if(g.nout&&(step%g.nout==0||g.t>=g.tend)) output(step); }
     if(g.t>=g.tend) break;
-    die("time stepping not implemented yet");
+    dt=g.cfl/wavemax(); if(!(dt>0)) die("non-finite time step"); if(g.t+dt>g.tend) dt=g.tend-g.t;
+    rhs_eval(g.q);  update(g.q1,1,g.q,0,g.q,dt);                        // SSP-RK3, two registers
+    rhs_eval(g.q1); update(g.q1,C(.75),g.q,C(.25),g.q1,C(.25)*dt);
+    rhs_eval(g.q1); update(g.q,C(1./3),g.q,C(2./3),g.q1,C(2./3)*dt);
+    g.t+=dt; step++;
   }
   MPI_Finalize(); return 0;
 }
