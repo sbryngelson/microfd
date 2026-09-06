@@ -201,7 +201,7 @@ outputs. Python is a test dependency only. The code has no Python dependency.
 | 3D Taylor-Green, Re 0.1 (Stokes limit), mu=10 | kinetic energy decay vs exact exp(-6 nu t) at t=0.02, 64^3 | within 0.2 percent (pins the Laplacian part of the operator in all three directions; measured 0.07 percent, 2nd-order convergent) |
 | 1D acoustic wave, eps=1e-3, mu=0.05, Pr=0.71 | kinetic energy decay vs classical absorption exp(-k^2 [4/3 nu + (gamma-1) nu/Pr] t) at t=4, 64 cells | within 1 percent (pins the 4/3 bulk factor, so the transpose and trace stress terms, and the conductivity; measured 0.27 percent) |
 | TGV Re 1600, Ma 0.1 | kinetic energy dissipation rate vs the 512^3 spectral reference at 128^3 | peak dissipation within 10 percent, peak time within 1.0, curve within 2.5e-3 (see note) |
-| Wall BC | Sedov in one octant with walls vs full domain | octant matches the full run's octant to 1e-8 |
+| Wall BC | Sedov with mu=0.005 in one octant with walls vs full domain | octant matches the full run's octant to 1e-8 (viscous, so the tangential stencil reads the wall-edge ghosts) |
 | MPI | TGV 64^3 on 1 rank vs 8 ranks for 50 steps | fields agree to roundoff |
 | Perf | TGV 256^3 on 1 A100, 100 steps | ns per cell per step, reported, compared to section 8 |
 | Weak scaling | TGV 256^3 per rank on 1, 2, 4 A100s | efficiency reported |
