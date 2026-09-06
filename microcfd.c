@@ -255,9 +255,9 @@ int main(int argc,char**argv){
   real *q=g.q,*q1=g.q1,*rhs=g.rhs,*w=g.w,*F=g.F,*s0=g.sbuf[0],*s1=g.sbuf[1],*r0=g.rbuf[0],*r1=g.rbuf[1]; const size_t nb=g.nbuf;
   #pragma omp target enter data map(to:q[0:m],rhs[0:m]) map(alloc:q1[0:m],w[0:m],F[0:m],s0[0:nb],s1[0:nb],r0[0:nb],r1[0:nb])
 
-  real dt=0; int step=0; double tl=MPI_Wtime();
+  real dt=0; int step=0, ls=0; double tl=MPI_Wtime();
   for(;;){
-    if(step%g.ndiag==0||g.t>=g.tend){ halo(g.q); prim(g.q); diag(step,dt,(MPI_Wtime()-tl)/g.ndiag); tl=MPI_Wtime(); if(g.nout&&(step%g.nout==0||g.t>=g.tend)) output(step); }
+    if(step%g.ndiag==0||g.t>=g.tend){ halo(g.q); prim(g.q); diag(step,dt,(MPI_Wtime()-tl)/(step>ls?step-ls:1)); tl=MPI_Wtime(); ls=step; if(g.nout&&(step%g.nout==0||g.t>=g.tend)) output(step); }
     if(g.t>=g.tend) break;
     dt=g.cfl/wavemax(); if(!(dt>0)) die("non-finite time step"); if(g.t+dt>g.tend) dt=g.tend-g.t;
     rhs_eval(g.q);  update(g.q1,1,g.q,0,g.q,dt);                        // SSP-RK3, two registers
