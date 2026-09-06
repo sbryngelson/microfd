@@ -62,27 +62,23 @@ If `switches` is interrupted, run `make -B` to restore the default build.
 
 ## Performance
 
-TGV, WENO5-Z + HLLC + viscous, double precision; one full SSP-RK3 step. Grid
-size matters: 256^3 is a few percent of a modern GPU, so both a fill-size and a
-256^3 row are given. The published codes are quoted at the sizes they reported.
+TGV, WENO5-Z + HLLC + viscous, double precision, one full SSP-RK3 step. Fastest
+grid measured on each GPU; the published codes at the sizes they report. Larger
+grids amortize per-step overhead, so the grid column matters when comparing rows
+(microcfd on MI350X is 1.51 at 256^3 against 1.20 at 976^3).
 
 | code | GPU | grid | ns per cell per step | source |
 |---|---|---|---|---|
-| microcfd | MI350X (gfx950) | 976^3, 930M cells, 212 of 287 GiB | 1.20 | `make amd ARCH=gfx950` |
-| microcfd | MI350X (gfx950) | 256^3, 16.8M cells | 1.51 | as above |
-| microcfd | MI210 (gfx90a) | 576^3, 191M cells, 44 of 64 GiB | 4.55 | `make amd ARCH=gfx90a` |
-| microcfd | MI210 (gfx90a) | 256^3, 16.8M cells | 4.77 | as above |
+| microcfd | MI350X | 976^3, 930M cells | 1.20 | `make amd ARCH=gfx950` |
+| microcfd | MI210 | 576^3, 191M cells | 4.55 | `make amd ARCH=gfx90a` |
 | microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.69 | `python3 test.py perf` |
+| MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
-| MFC, WENO5 + HLLC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 
-Strong scaling on MI350X at 976^3: 1 GPU 1.20, 2 GPUs 0.65 (92%), 4 GPUs 0.34
-(88%). The 8-GPU point measures 0.15, which is superlinear against that trend
-and is not yet confirmed.
-
-Weak scaling on A100 to 4 GPUs: 1 GPU 4.69, 2 GPUs 5.07 (93%), 4 GPUs 6.16
-(76%) ns/cell/step per GPU. The A100 rows predate the fused divergence/update
-kernel and have not been re-run; expect them to improve by about 15%.
+Strong scaling on MI350X at 976^3: 1.20, 0.65 (92%), 0.34 (88%) on 1, 2, 4 GPUs.
+The 8-GPU point measures 0.15, superlinear against that trend and unconfirmed.
+Weak scaling on A100: 4.69, 5.07 (93%), 6.16 (76%) per GPU on 1, 2, 4. The A100
+rows predate the fused divergence/update kernel; expect about 15% better.
 
 Memory is 240 B per cell (30 fields of 8 B: q, q1, w, and F for three
 directions), so a 64 GiB GPU holds roughly 630^3 and a 287 GiB GPU roughly 1050^3.
