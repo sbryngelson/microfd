@@ -1,4 +1,4 @@
-# microcfd
+# microfd
 3D compressible Navier-Stokes in one C file: finite volume on a uniform grid, WENO5-Z, HLLC, SSP-RK3, 2nd-order viscous terms, reflective free-slip adiabatic walls. Dimension-by-dimension, one Riemann solve per face, so formally 2nd order in multi-D with a WENO5 error constant. OpenMP target offload on NVIDIA and AMD, MPI decomposition, double precision. Needs a C compiler with offload, MPI, and Python + numpy for tests.
 
 ## Build
@@ -10,7 +10,7 @@ make amd ARCH=gfx90a             # AMD: amdclang; MK="amd ARCH=gfx90a" make test
 
 ## Run
 ```
-mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc -np 4 ./microcfd case=tgv nx=256 ny=256 nz=256 tend=10 ndiag=20 nout=500
+mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc -np 4 ./microfd case=tgv nx=256 ny=256 nz=256 tend=10 ndiag=20 nout=500
 ```
 
 | key | meaning | default |
@@ -35,10 +35,10 @@ TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; publ
 
 | code | GPU | grid | ns per cell per step | at A100 40GB bandwidth | source |
 |---|---|---|---|---|---|
-| microcfd | MI350X | 976^3, 930M cells | 1.20 | 6.17 | `make amd ARCH=gfx950` |
-| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 3.92 | 4.88 | `python3 test.py perf` |
-| microcfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | 4.75 | `make amd ARCH=gfx90a` |
-| microcfd | MI210 | 576^3, 191M cells | 4.55 | 4.79 | as above |
+| microfd | MI350X | 976^3, 930M cells | 1.20 | 6.17 | `make amd ARCH=gfx950` |
+| microfd | A100 80GB PCIe | 256^3, 16.8M cells | 3.92 | 4.88 | `python3 test.py perf` |
+| microfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | 4.75 | `make amd ARCH=gfx90a` |
+| microfd | MI210 | 576^3, 191M cells | 4.55 | 4.79 | as above |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | 14.2 | Sathyanarayana et al. 2023 |
 

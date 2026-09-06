@@ -1,4 +1,4 @@
-microcfd
+microfd
 tests/run/
 *.bin
 *.xmf

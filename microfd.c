@@ -1,4 +1,4 @@
-// microcfd: 3D compressible Navier-Stokes on a uniform grid. Finite volume, WENO5-Z + HLLC, SSP-RK3.
+// microfd: 3D compressible Navier-Stokes on a uniform grid. Finite volume, WENO5-Z + HLLC, SSP-RK3.
 // One file. OpenMP target offload (NVIDIA or AMD). MPI Cartesian decomposition with GPU-aware halos.
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +27,7 @@ static struct {                                // all solver state; kernels copy
   MPI_Comm comm;
 } g;
 
-static void die(const char*m){ fprintf(stderr,"microcfd: %s\n",m); MPI_Abort(MPI_COMM_WORLD,1); }
+static void die(const char*m){ fprintf(stderr,"microfd: %s\n",m); MPI_Abort(MPI_COMM_WORLD,1); }
 
 // ---- cases: primitives (rho,u,v,w,p) at a point; the table gives domain, viscosity, end time, BCs (0 periodic, 1 wall, 2 outflow)
 typedef struct { const char*name; void(*ic)(real,real,real,real*); real o[3],L[3],mu,tend; int bc[3]; } Case;

@@ -1,4 +1,4 @@
-# microcfd tests: python3 test.py [ic sod sedov vortex wall mpi visc tgv3d switches perf]
+# microfd tests: python3 test.py [ic sod sedov vortex wall mpi visc tgv3d switches perf]
 import os, sys, glob, shutil, subprocess, pathlib, numpy as np
 R = pathlib.Path(__file__).resolve().parent
 MPIRUN = os.environ.get("MPIRUN", "mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc").split()
@@ -6,9 +6,9 @@ ctr = lambda o, L, n: o + L / n * (np.arange(n) + 0.5)
 def ok(c, m): print(("ok: " if c else "FAIL: ") + m); c or sys.exit(1)
 def run(name, np_=1, **o):   # -> (diag rows [step t dt KE enstrophy maxMach ns/cell/step], first, last) (5,nz,ny,nx)
     d = R / "run" / name; shutil.rmtree(d, ignore_errors=True); d.mkdir(parents=True)
-    p = subprocess.run(MPIRUN + ["-np", str(np_), str(R.parent / "microcfd")] + [f"{k}={v}" for k, v in o.items()],
+    p = subprocess.run(MPIRUN + ["-np", str(np_), str(R.parent / "microfd")] + [f"{k}={v}" for k, v in o.items()],
                        cwd=d, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if p.returncode: raise SystemExit(f"microcfd failed ({p.returncode}):\n{p.stdout}")
+    if p.returncode: raise SystemExit(f"microfd failed ({p.returncode}):\n{p.stdout}")
     f, s = sorted(glob.glob(str(d / "out_*.bin"))) or [None, None], (5, *(o.get(k, 64) for k in ("nz", "ny", "nx")))
     return (np.array([list(map(float, l.split())) for l in p.stdout.splitlines() if l and l[0].isdigit()]),
             *(np.fromfile(b, np.float64).reshape(s) if b else None for b in (f[0], f[-1])))
