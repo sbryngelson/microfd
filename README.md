@@ -2,15 +2,17 @@
 
 [![ci](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml)
 ![Lines of Code](sloc.svg)
-![C11](https://img.shields.io/badge/C11-single%20file-blue)
 ![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
 ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD%20%7C%20Intel-lightgrey)
 
-How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in one short C file: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
+How short can a very fast CFD code be? 
+
+microfd is a 3D compressible Navier-Stokes solver in one ~200 line C file. About 1.2 ns per cell per step on an AMD MI350X and 3.9 on A100.
+So - faster than best reference times.
 
 <img src="tgv.webp" width="450" alt="Taylor-Green vortex at Re 1600, 256^3, t = 0 to 10">
 
-Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA, AMD, and Intel GPUs; MPI across GPUs. The solver stays under 300 lines; CI fails a commit that crosses it.
+Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA, AMD, and Intel GPUs; GPU-aware MPI.
 
 The reconstruction and the time step, as they appear in the file:
 ```c
@@ -30,11 +32,11 @@ static void update(double*out,double a,const double*qa,double b,const double*qb,
 ```
 
 ## Build and run
-```
+```bash
 make                     # NVIDIA
 make amd ARCH=gfx90a     # AMD
-make pvc                 # Intel GPU Max (icx + Level Zero, requires iimpi)
-make cpu                 # host, no offload: same answers, slowly
+make pvc                 # Intel GPU Max
+make cpu                 # CPU
 mpirun -np 4 ./microfd case=tgv nx=256 ny=256 nz=256 tend=10 nout=500
 make test
 ```
@@ -73,10 +75,10 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 | nekRS, incompressible, p7 | NVIDIA | A100 40GB | 2.5M points | 16.9 |
 | JAX-Fluids 2.0, WENO5-Z + HLLC | NVIDIA | A100 | 8 × 320^3 | 58.0 |
 
-Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation, four per step assumed), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are tokei code lines of each solver's source directory.
+Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation, four per step assumed), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are the code lines of each solver's source directory.
 
-## Not in here
-Uniform Cartesian grids only. Single-species ideal gas. Explicit time stepping. Formally second order in 3D despite the fifth-order reconstruction. No adaptive refinement, immersed boundaries, chemistry, or turbulence models.
+## Not here
+Uniform Cartesian grids only. Single-species ideal gas. Explicit time stepping. No AMR, immersed boundaries, reactions, turbulence models, etc.
 
 ## License
 Apache-2.0
