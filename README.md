@@ -38,7 +38,8 @@ TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; publ
 |---|---|---|---|---|
 | microcfd | MI350X | 976^3, 930M cells | 1.20 | `make amd ARCH=gfx950` |
 | microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.02 | `python3 test.py perf` |
-| microcfd | MI210 | 576^3, 191M cells | 4.55 | `make amd ARCH=gfx90a` |
+| microcfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | `make amd ARCH=gfx90a` |
+| microcfd | MI210 | 576^3, 191M cells | 4.55 | as above |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
 
