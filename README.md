@@ -62,14 +62,27 @@ If `switches` is interrupted, run `make -B` to restore the default build.
 
 ## Performance
 
-TGV, 256^3, WENO5-Z + HLLC + viscous, double; microcfd rows measured on one
-A100 80GB PCIe and one MI210 respectively:
+TGV, WENO5-Z + HLLC + viscous, double precision; one full SSP-RK3 step. Grid
+size matters: 256^3 is a few percent of a modern GPU, so both a fill-size and a
+256^3 row are given. The published codes are quoted at the sizes they reported.
 
-| code | ns per cell per step | source |
-|---|---|---|
-| microcfd | 4.69 | python3 test.py perf |
-| microcfd, MI210 (gfx90a), user-measured | 4.46 | make amd |
-| STREAmS-2, WENO5 | 14.2 | Sathyanarayana et al. 2023, A100 40GB |
-| MFC, WENO5 + HLLC, normalized to 5 PDEs | 8.9 | Wilfong et al. 2024 |
+| code | GPU | grid | ns per cell per step | source |
+|---|---|---|---|---|
+| microcfd | MI350X (gfx950) | 976^3, 930M cells, 212 of 287 GiB | 1.20 | `make amd ARCH=gfx950` |
+| microcfd | MI350X (gfx950) | 256^3, 16.8M cells | 1.51 | as above |
+| microcfd | MI210 (gfx90a) | 576^3, 191M cells, 44 of 64 GiB | 4.55 | `make amd ARCH=gfx90a` |
+| microcfd | MI210 (gfx90a) | 256^3, 16.8M cells | 4.77 | as above |
+| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.69 | `python3 test.py perf` |
+| STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
+| MFC, WENO5 + HLLC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 
-Weak scaling to 4 GPUs: 1 GPU 4.69, 2 GPUs 5.07 (93%), 4 GPUs 6.16 (76%) ns/cell/step per GPU.
+Strong scaling on MI350X at 976^3: 1 GPU 1.20, 2 GPUs 0.65 (92%), 4 GPUs 0.34
+(88%). The 8-GPU point measures 0.15, which is superlinear against that trend
+and is not yet confirmed.
+
+Weak scaling on A100 to 4 GPUs: 1 GPU 4.69, 2 GPUs 5.07 (93%), 4 GPUs 6.16
+(76%) ns/cell/step per GPU. The A100 rows predate the fused divergence/update
+kernel and have not been re-run; expect them to improve by about 15%.
+
+Memory is 240 B per cell (30 fields of 8 B: q, q1, w, and F for three
+directions), so a 64 GiB GPU holds roughly 630^3 and a 287 GiB GPU roughly 1050^3.
