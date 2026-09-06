@@ -106,7 +106,7 @@ def switches():   # every compile-time switch builds and passes Sod at a looser 
     finally: mk("")
 def perf():   # ns per cell per step on one GPU at 256^3, and weak scaling to 2 and 4 GPUs at 256^3 per GPU
     def ns(np_, **g):   # skip the warm-up rows and the partial last interval; column is per global cell, scale to per GPU
-        d = run(f"perf{np_}", np_, case="tgv", tend=0.1, ndiag=10, **g)[0]; return d[2:-1, 6].mean() * np_, int(d[-1, 0])
+        d = run(f"perf{np_}", np_, case="tgv", tend=0.1, ndiag=10, **g)[0]; return d[2:-1, 5].mean() * np_, int(d[-1, 0])
     t1, steps = ns(1, nx=256, ny=256, nz=256); print(f"1 GPU, 256^3, {steps} steps: {t1:.2f} ns/cell/step = {1e3/t1:.0f} M cell-updates/s")
     t2, t4 = ns(2, nx=512, ny=256, nz=256, px=2)[0], ns(4, nx=512, ny=512, nz=256, px=2, py=2)[0]
     print(f"weak scaling, 256^3 per GPU: 1 GPU {t1:.2f}, 2 GPUs {t2:.2f} ({t1/t2*100:.0f}%), 4 GPUs {t4:.2f} ({t1/t4*100:.0f}%) ns/cell/step per GPU")

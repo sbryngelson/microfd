@@ -14,15 +14,15 @@ Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA a
 
 The reconstruction and the time step, as they appear in the file:
 ```c
-static real weno5(real a,real b,real c,real d,real e){                 // WENO5-Z
-  real b0=C(13./12)*(a-2*b+c)*(a-2*b+c)+C(.25)*(a-4*b+3*c)*(a-4*b+3*c);
-  real b1=C(13./12)*(b-2*c+d)*(b-2*c+d)+C(.25)*(b-d)*(b-d);
-  real b2=C(13./12)*(c-2*d+e)*(c-2*d+e)+C(.25)*(3*c-4*d+e)*(3*c-4*d+e);
-  real t=fabs(b0-b2), w0=C(.1)*(1+t/(b0+EPS)), w1=C(.6)*(1+t/(b1+EPS)), w2=C(.3)*(1+t/(b2+EPS));
+static double weno5(double a,double b,double c,double d,double e){                 // WENO5-Z
+  double b0=13./12*(a-2*b+c)*(a-2*b+c)+.25*(a-4*b+3*c)*(a-4*b+3*c);
+  double b1=13./12*(b-2*c+d)*(b-2*c+d)+.25*(b-d)*(b-d);
+  double b2=13./12*(c-2*d+e)*(c-2*d+e)+.25*(3*c-4*d+e)*(3*c-4*d+e);
+  double t=fabs(b0-b2), w0=.1*(1+t/(b0+1e-16)), w1=.6*(1+t/(b1+1e-16)), w2=.3*(1+t/(b2+1e-16));
   return (w0*(2*a-7*b+11*c)+w1*(-b+5*c+2*d)+w2*(2*c+5*d-e))/(6*(w0+w1+w2));
 }
-static void update(real*out,real a,const real*qa,real b,const real*qb,real c){   // out = a qa + b qb - c div F
-  LOCALS; const real*F=g.F; const real h0=g.h[0],h1=g.h[1],h2=g.h[2]; const size_t m=NV*nc;
+static void update(double*out,double a,const double*qa,double b,const double*qb,double c){   // out = a qa + b qb - c div F; the divergence is fused in, so no rhs array
+  LOCALS; const double*F=g.F; const double h0=g.h[0],h1=g.h[1],h2=g.h[2]; const size_t m=NV*nc;
   FOR3(NG,NG,NG,){ const long ci=IDX(i,j,k);
     for(int v=0;v<5;v++){ const size_t o=v*nc+ci;
       out[o]=a*qa[o]+b*qb[o]-c*((F[o]-F[o-1])/h0+(F[m+o]-F[m+o-sx])/h1+(F[2*m+o]-F[2*m+o-sy])/h2); } }
@@ -44,7 +44,7 @@ make test
 | nx ny nz | cells | 64 |
 | px py pz | ranks per direction | auto |
 | bcx bcy bcz | 0 periodic, 1 wall, 2 outflow | case |
-| mu, pr, gamma | viscosity, Prandtl, gamma | case, 0.71, 1.4 |
+| mu | viscosity, 0 for Euler | case |
 | cfl, tend | CFL number, end time | 0.5, case |
 | ndiag, nout | steps between diagnostics, field outputs | 10, never |
 
