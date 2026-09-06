@@ -262,3 +262,22 @@ docs/superpowers/specs/   this document
 - GPU-aware MPI availability. Mitigation: `-DHOST_MPI`.
 - Primitive-variable WENO can produce small oscillations near strong shocks.
   Acceptable for this scope. Characteristic projection is out of budget.
+
+## 11. Code style
+
+Compactness is a first-class goal and cleverness in service of it is
+welcome. Concretely:
+
+- Prefer one generic function with a stride or coefficient argument over
+  three near-copies. The face, divergence, pack, unpack, and ghost-fill
+  kernels are all direction-generic through strides.
+- Prefer macros that generate repeated per-field code over hand-written
+  repetition, as long as the macro is defined once and named clearly.
+- Prefer folding a pass into an adjacent kernel over a separate kernel,
+  such as zeroing the residual inside the update kernel.
+- Prefer table-driven dispatch (cases, boundary conditions, RK coefficients)
+  over if-else chains.
+- Dense is fine. Obscure is not. Every trick that saves lines must still be
+  readable by someone who knows finite-volume CFD, given at most a one-line
+  comment.
+- No dead code, no configurability that is not used by a test or a case.
