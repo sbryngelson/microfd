@@ -41,11 +41,13 @@ mpicc (amdclang)  -O3 -fopenmp --offload-arch=gfx90a        # AMD
 ```
 
 On this machine the MPI is the HPC-X Open MPI bundled with the NVIDIA HPC
-SDK. Its UCX path silently corrupts device-buffer messages here, while the
-`ob1` PML with the `smcuda` BTL exchanges device buffers correctly. Runs use:
+SDK. Its UCX path silently corrupts device-buffer messages here, and the
+`smcuda` BTL's CUDA IPC path corrupts every cross-GPU message after the first.
+With CUDA IPC disabled, `ob1` plus `smcuda` exchanges device buffers correctly
+on repeated exchanges across all four GPUs. Runs use:
 
 ```
-mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca coll_hcoll_enable 0
+mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca btl_smcuda_use_cuda_ipc 0 --mca coll_hcoll_enable 0
 ```
 
 Only constructs that both nvc and amdclang handle well are used:
