@@ -160,7 +160,7 @@ are an error.
 
 | Key | Meaning | Default |
 |---|---|---|
-| case | tgv, tgv2d, sod, sedov, vortex | tgv |
+| case | tgv, tgv2d, sod, sedov, vortex, acoustic | tgv |
 | nx ny nz | global cells | 64 64 64 |
 | lx ly lz | domain lengths | 2pi each |
 | px py pz | rank decomposition, 0 means auto | 0 |
@@ -198,7 +198,8 @@ outputs. Python is a test dependency only. The code has no Python dependency.
 | Sod x, y, z | density vs exact Riemann solution at t=0.2 | L1 error below fixed threshold, identical across axes to roundoff |
 | Isentropic vortex | L1 density error after one period, at 32, 64, 128 cells | observed order at least 1.9 (formally second order in multi-D, see note) |
 | 2D Taylor-Green, Re 10, Ma 0.05 | kinetic energy decay vs exact exp(-4 nu t) at t=1 | within 1 percent |
-| 3D Taylor-Green, Re 0.1 (Stokes limit), mu=10 | kinetic energy decay vs exact exp(-6 nu t) at t=0.02, 64^3 | within 0.2 percent (exercises all nine velocity gradients; measured 0.07 percent, 2nd-order convergent) |
+| 3D Taylor-Green, Re 0.1 (Stokes limit), mu=10 | kinetic energy decay vs exact exp(-6 nu t) at t=0.02, 64^3 | within 0.2 percent (pins the Laplacian part of the operator in all three directions; measured 0.07 percent, 2nd-order convergent) |
+| 1D acoustic wave, eps=1e-3, mu=0.05, Pr=0.71 | kinetic energy decay vs classical absorption exp(-k^2 [4/3 nu + (gamma-1) nu/Pr] t) at t=4, 64 cells | within 1 percent (pins the 4/3 bulk factor, so the transpose and trace stress terms, and the conductivity; measured 0.27 percent) |
 | TGV Re 1600, Ma 0.1 | kinetic energy dissipation rate vs the 512^3 spectral reference at 128^3 | peak dissipation within 10 percent, peak time within 1.0, curve within 2.5e-3 (see note) |
 | Wall BC | Sedov in one octant with walls vs full domain | octant matches the full run's octant to 1e-8 |
 | MPI | TGV 64^3 on 1 rank vs 8 ranks for 50 steps | fields agree to roundoff |
@@ -207,7 +208,7 @@ outputs. Python is a test dependency only. The code has no Python dependency.
 
 Note on formal order. The face flux is a single HLLC solve on the face-centre reconstruction, dimension by dimension. For nonlinear systems in two and three dimensions this class of finite-volume WENO scheme is formally second-order accurate (Zhang, Zhang and Shu, Commun. Comput. Phys. 9, 2011), whatever the reconstruction order; the fifth-order reconstruction buys a much smaller error constant, not a higher asymptotic rate. Measured on the isentropic vortex: order 1.99 with an L1 density error ten times below the MUSCL variant at the same resolution. Restoring a formal fifth order would need either a finite-difference flux-splitting formulation (drops HLLC) or transverse Gauss quadrature (four Riemann solves per face). Both were considered and rejected on 2026-09-05 in favour of keeping the MFC-style FV + HLLC scheme; the vortex test therefore requires order at least 1.9.
 
-Note on the 128^3 TGV comparison. Measured on 2026-09-05: peak dissipation 0.01192 at t = 8.13 against the spectral 0.01286 at t = 8.97, with a maximum curve deviation of 2.1e-3. An upwind scheme at this resolution removes energy numerically before the physical peak, so the peak arrives lower and earlier; the plan's original tolerances (0.6 in time, 1.5e-3 in the curve) were guesses and were retargeted after the viscous operator was verified exactly by the Stokes-limit row above. A 256^3 comparison, which should land much closer to the reference, is deferred until the performance task makes it affordable as a test.
+Note on the 128^3 TGV comparison. Measured on 2026-09-05: peak dissipation 0.01192 at t = 8.13 against the spectral 0.01286 at t = 8.97, with a maximum curve deviation of 2.1e-3. An upwind scheme at this resolution removes energy numerically before the physical peak, so the peak arrives lower and earlier; the plan's original tolerances (0.6 in time, 1.5e-3 in the curve) were guesses and were retargeted after the Laplacian part of the viscous operator was verified exactly by the Stokes-limit row above and the bulk-stress and conduction parts by the acoustic row. A 256^3 comparison, which should land much closer to the reference, is deferred until the performance task makes it affordable as a test.
 
 Each numerical test is added before the feature it exercises, per the
 test-driven workflow in the implementation plan.
