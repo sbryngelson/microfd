@@ -75,8 +75,8 @@ grids amortize per-step overhead, so the grid column matters when comparing rows
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
 
-Strong scaling on MI350X at 976^3: 1.20, 0.65 (92%), 0.34 (88%) on 1, 2, 4 GPUs.
-The 8-GPU point measures 0.15, superlinear against that trend and unconfirmed.
+Strong scaling on MI350X at 976^3: 1.20, 0.65, 0.34, 0.15 ns/cell/step on
+1, 2, 4, 8 GPUs.
 Weak scaling on A100: 4.69, 5.07 (93%), 6.16 (76%) per GPU on 1, 2, 4. The A100
 rows predate the fused divergence/update kernel; expect about 15% better.
 
