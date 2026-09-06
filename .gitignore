@@ -1,0 +1,5 @@
+microcfd
+tests/run/
+*.bin
+*.xmf
+__pycache__/
