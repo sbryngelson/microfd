@@ -31,15 +31,16 @@ Unknown keys are an error. Diagnostics: `step t dt KE enstrophy maxMach ns/cell/
 `make test` runs `tests/test.py`: `tgv3d` takes minutes, `switches` rebuilds twice, `make -B` restores after an interrupt. `python3 test.py perf` reports throughput and weak scaling.
 
 ## Performance
-TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report. The last column rescales each time by peak HBM bandwidth over the A100 40GB's 1555 GB/s (A100 80GB 1935, MI210 and MI250X per GCD 1638, MI350X 8000); what remains is grid size and per-architecture efficiency.
+TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report. The last column rescales each time by peak HBM bandwidth over the A100 40GB's 1555 GB/s (A100 80GB 1935, MI210 and MI250X per GCD 1638, MI300X 5300, MI350X 8000); what remains is grid size and per-architecture efficiency.
 
 | code | GPU | grid | ns per cell per step | at A100 40GB bandwidth | source |
 |---|---|---|---|---|---|
 | microfd | MI350X | 976^3, 930M cells | 1.20 | 6.17 | `make amd ARCH=gfx950` |
+| microfd | MI300X | 256^3, 16.8M cells | 1.41 | 4.81 | `make amd ARCH=gfx942` |
 | microfd | A100 80GB PCIe | 256^3, 16.8M cells | 3.92 | 4.88 | `python3 test.py perf` |
 | microfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | 4.75 | `make amd ARCH=gfx90a` |
 | microfd | MI210 | 576^3, 191M cells | 4.55 | 4.79 | as above |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | 8.9 | Wilfong et al. 2024 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | 14.2 | Sathyanarayana et al. 2023 |
 
-Grid size shifts these: MI350X 1.51 at 256^3, A100 4.04 at 640^3, 262M cells, 63 of 80 GiB. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs. A100 weak scaling: 3.92, 4.27 (92%), 5.34 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
+Grid size shifts these, and not in the same direction on every GPU: MI350X 1.51 at 256^3, MI300X 1.54 at 856^3 (143 of 191 GiB), A100 4.04 at 640^3 (262M cells, 63 of 80 GiB). MI300X and the A100 are fastest at 256^3; the others at fill size. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs; MI300X at 856^3: 1.53, 0.77, 0.40, 0.20. A100 weak scaling: 3.92, 4.27 (92%), 5.34 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
