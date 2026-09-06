@@ -1,4 +1,4 @@
-# microcfd tests: python3 test.py [ic sod vortex wall mpi visc tgv3d]
+# microcfd tests: python3 test.py [ic sod sedov vortex wall mpi visc tgv3d switches perf]
 import os, sys, glob, shutil, subprocess, pathlib, numpy as np
 R = pathlib.Path(__file__).resolve().parent
 MPIRUN = os.environ.get("MPIRUN", "mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc").split()
@@ -123,7 +123,7 @@ def sedov():   # 64^3 blast to t=0.1: finite, positive, and mass conserved (noth
 def switches():   # every compile-time switch builds and passes Sod at a looser tolerance; the default build is restored
     mk = lambda x: subprocess.run(["make", "-B", "-C", str(R.parent), f"EXTRA={x}"], check=True, stdout=subprocess.DEVNULL)
     try:
-        for x, tol in (("-DMUSCL", "2e-2"), ("-DRUSANOV", "1.5e-2"), ("-DHOST_MPI", "1e-2"), ("-DFLOAT", "1.5e-2")):
+        for x, tol in (("-DMUSCL", "2e-2"), ("-DRUSANOV", "1.5e-2"), ("-DHOST_MPI", "1e-2"), ("-DFLOAT", None)):
             mk(x)
             if x == "-DFLOAT":   # float32 output files: check the diagnostics only
                 ok(np.isfinite(run("sod_float", 1, case="sod", nx=200, ny=4, nz=4, ndiag=10**6)[0]).all(), "FLOAT run finite"); continue
