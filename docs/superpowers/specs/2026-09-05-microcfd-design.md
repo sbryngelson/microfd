@@ -196,13 +196,15 @@ outputs. Python is a test dependency only. The code has no Python dependency.
 | Test | Check | Pass criterion |
 |---|---|---|
 | Sod x, y, z | density vs exact Riemann solution at t=0.2 | L1 error below fixed threshold, identical across axes to roundoff |
-| Isentropic vortex | L2 error vs exact after one period, at 32, 64, 128 cells | observed order at least 3 |
+| Isentropic vortex | L1 density error after one period, at 32, 64, 128 cells | observed order at least 1.9 (formally second order in multi-D, see note) |
 | 2D Taylor-Green, Re 10, Ma 0.05 | kinetic energy decay vs exact exp(-4 nu t) at t=1 | within 1 percent |
 | TGV Re 1600, Ma 0.1 | kinetic energy dissipation rate vs the 512^3 spectral reference at 128^3 | peak dissipation within 10 percent, peak time within 0.6 |
 | Wall BC | Sedov in one octant with walls vs full domain | octant matches the full run's octant to 1e-8 |
 | MPI | TGV 64^3 on 1 rank vs 8 ranks for 50 steps | fields agree to roundoff |
 | Perf | TGV 256^3 on 1 A100, 100 steps | ns per cell per step, reported, compared to section 8 |
 | Weak scaling | TGV 256^3 per rank on 1, 2, 4 A100s | efficiency reported |
+
+Note on formal order. The face flux is a single HLLC solve on the face-centre reconstruction, dimension by dimension. For nonlinear systems in two and three dimensions this class of finite-volume WENO scheme is formally second-order accurate (Zhang, Zhang and Shu, Commun. Comput. Phys. 9, 2011), whatever the reconstruction order; the fifth-order reconstruction buys a much smaller error constant, not a higher asymptotic rate. Measured on the isentropic vortex: order 1.99 with an L1 density error ten times below the MUSCL variant at the same resolution. Restoring a formal fifth order would need either a finite-difference flux-splitting formulation (drops HLLC) or transverse Gauss quadrature (four Riemann solves per face). Both were considered and rejected on 2026-09-05 in favour of keeping the MFC-style FV + HLLC scheme; the vortex test therefore requires order at least 1.9.
 
 Each numerical test is added before the feature it exercises, per the
 test-driven workflow in the implementation plan.
