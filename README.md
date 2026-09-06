@@ -4,7 +4,7 @@
 ## Build
 ```
 make                             # NVIDIA: nvc, ARCH=cc80
-make amd ARCH=gfx90a              # AMD: amdclang; MK="amd ARCH=gfx90a" make test
+make amd ARCH=gfx90a             # AMD: amdclang; MK="amd ARCH=gfx90a" make test
 ```
 `PATH` must hold the compiler and MPI `bin` directories. `EXTRA=-DHOST_MPI` stages halos through host memory; rebuild with `make -B`.
 
@@ -31,7 +31,7 @@ Unknown keys are an error. Diagnostics: `step t dt KE enstrophy maxMach ns/cell/
 `make test` runs `tests/test.py`: `tgv3d` takes minutes, `switches` rebuilds twice, `make -B` restores after an interrupt. `python3 test.py perf` reports throughput and weak scaling.
 
 ## Performance
-TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report. The last column rescales each time by that GPU's peak HBM bandwidth over the A100 40GB's 1555 GB/s, so it ranks the code rather than the memory system.
+TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report. The last column rescales each time by peak HBM bandwidth over the A100 40GB's 1555 GB/s (A100 80GB 1935, MI210 and MI250X per GCD 1638, MI350X 8000); what remains is grid size and per-architecture efficiency.
 
 | code | GPU | grid | ns per cell per step | at A100 40GB bandwidth | source |
 |---|---|---|---|---|---|
