@@ -4,8 +4,7 @@
 ## Build
 ```
 make                             # NVIDIA: nvc, ARCH=cc80
-make amd ARCH=gfx90a
-MK="amd ARCH=gfx90a" make test
+make amd ARCH=gfx90a              # AMD: amdclang; MK="amd ARCH=gfx90a" make test
 ```
 `PATH` must hold the compiler and MPI `bin` directories. `EXTRA=-DHOST_MPI` stages halos through host memory; rebuild with `make -B`.
 
@@ -32,15 +31,15 @@ Unknown keys are an error. Diagnostics: `step t dt KE enstrophy maxMach ns/cell/
 `make test` runs `tests/test.py`: `tgv3d` takes minutes, `switches` rebuilds twice, `make -B` restores after an interrupt. `python3 test.py perf` reports throughput and weak scaling.
 
 ## Performance
-TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report.
+TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; published codes at the sizes they report. The last column rescales each time by that GPU's peak HBM bandwidth over the A100 40GB's 1555 GB/s, so it ranks the code rather than the memory system.
 
-| code | GPU | grid | ns per cell per step | source |
-|---|---|---|---|---|
-| microcfd | MI350X | 976^3, 930M cells | 1.20 | `make amd ARCH=gfx950` |
-| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 4.02 | `python3 test.py perf` |
-| microcfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | `make amd ARCH=gfx90a` |
-| microcfd | MI210 | 576^3, 191M cells | 4.55 | as above |
-| MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | Wilfong et al. 2024 |
-| STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | Sathyanarayana et al. 2023 |
+| code | GPU | grid | ns per cell per step | at A100 40GB bandwidth | source |
+|---|---|---|---|---|---|
+| microcfd | MI350X | 976^3, 930M cells | 1.20 | 6.17 | `make amd ARCH=gfx950` |
+| microcfd | A100 80GB PCIe | 256^3, 16.8M cells | 3.92 | 4.88 | `python3 test.py perf` |
+| microcfd | MI250X (one GCD) | 592^3, 208M cells | 4.51 | 4.75 | `make amd ARCH=gfx90a` |
+| microcfd | MI210 | 576^3, 191M cells | 4.55 | 4.79 | as above |
+| MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 | 8.9 | Wilfong et al. 2024 |
+| STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | 14.2 | Sathyanarayana et al. 2023 |
 
-Grid size shifts these: MI350X 1.51 at 256^3, A100 4.21 at 640^3, 262M cells, 63 of 80 GiB. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs. A100 weak scaling: 4.02, 4.39 (92%), 5.48 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
+Grid size shifts these: MI350X 1.51 at 256^3, A100 4.04 at 640^3, 262M cells, 63 of 80 GiB. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs. A100 weak scaling: 3.92, 4.27 (92%), 5.34 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
