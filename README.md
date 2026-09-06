@@ -4,7 +4,7 @@ A 3D compressible Navier-Stokes solver in one C file. Finite volume on a uniform
 grid, WENO5-Z reconstruction, HLLC flux, SSP-RK3, 2nd-order viscous terms
 (walls are reflective free-slip, adiabatic).
 Dimension-by-dimension with one Riemann solve per face, so formally 2nd order in
-multi-D with a WENO5 error constant (about 10x below MUSCL). Runs on NVIDIA and
+multi-D with a WENO5 error constant (about 10x below a 2nd-order limiter). Runs on NVIDIA and
 AMD GPUs through OpenMP target offload, decomposed with MPI. Dependencies: a C
 compiler with OpenMP offload and MPI. Tests use Python + numpy.
 
@@ -15,10 +15,9 @@ make            # NVIDIA: nvc, ARCH=cc80 default
 make amd ARCH=gfx90a
 ```
 
-Compile-time switches via `EXTRA` (use `make -B` to force the rebuild):
-`-DMUSCL` (van Leer instead of WENO5-Z), `-DRUSANOV` (instead of HLLC),
-`-DFLOAT` (single precision), `-DHOST_MPI` (stage halos through host memory for
-non-GPU-aware MPI).
+One compile-time switch via `EXTRA` (use `make -B` to force the rebuild):
+`-DHOST_MPI` stages halos through host memory for MPI that is not GPU-aware.
+Precision is double throughout.
 
 ## Run
 

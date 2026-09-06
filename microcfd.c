@@ -7,21 +7,8 @@
 #include <mpi.h>
 #include <omp.h>
 
-#ifdef FLOAT
-typedef float real;
-#define REAL_T MPI_FLOAT
-#define sqrt sqrtf
-#define fabs fabsf
-#define fmin fminf
-#define fmax fmaxf
-#define exp expf
-#define pow powf
-#define sin sinf
-#define cos cosf
-#else
 typedef double real;
 #define REAL_T MPI_DOUBLE
-#endif
 #define NV 5                                   // rho, rho u, rho v, rho w, E
 #define NG 3                                   // ghost layers (WENO5 stencil)
 #define C(x) ((real)(x))
@@ -69,9 +56,6 @@ static real weno5(real a,real b,real c,real d,real e){                 // WENO5-
   real t=fabs(b0-b2), w0=C(.1)*(1+t/(b0+EPS)), w1=C(.6)*(1+t/(b1+EPS)), w2=C(.3)*(1+t/(b2+EPS));
   return (w0*(2*a-7*b+11*c)+w1*(-b+5*c+2*d)+w2*(2*c+5*d-e))/(6*(w0+w1+w2));
 }
-static real muscl(real a,real b,real c,real d,real e){                 // van Leer limiter
-  real dm=c-b, dp=d-c, s=dm*dp; (void)a; (void)e; return c+(s>0?s/(dm+dp):0);
-}
 static void flux1(const real*S,real gam,real*U,real*f){                // conserved state and flux of one primitive state
   real r=S[0],u=S[1],p=S[4]; U[0]=r; U[1]=r*u; U[2]=r*S[2]; U[3]=r*S[3]; U[4]=p/(gam-1)+C(.5)*r*(u*u+S[2]*S[2]+S[3]*S[3]);
   for(int v=0;v<5;v++) f[v]=u*U[v]+(v==1)*p+(v==4)*p*u;
@@ -83,22 +67,7 @@ static void hllc(const real*L,const real*R,real gam,real*f){           // HLLC w
   if(left?sl<0:sr>0){ real r=S[0],u=S[1],p=S[4],k=(s-u)/(s-sm), Us[5]={r*k,r*k*sm,r*k*S[2],r*k*S[3],k*(U[4]+(sm-u)*(r*sm+p/(s-u)))};
     for(int v=0;v<5;v++) f[v]+=s*(Us[v]-U[v]); }
 }
-static void rusanov(const real*L,const real*R,real gam,real*f){
-  real Ul[5],Ur[5],fl[5],fr[5]; flux1(L,gam,Ul,fl); flux1(R,gam,Ur,fr);
-  real s=fmax(fabs(L[1])+sqrt(gam*L[4]/L[0]),fabs(R[1])+sqrt(gam*R[4]/R[0]));
-  for(int v=0;v<5;v++) f[v]=C(.5)*(fl[v]+fr[v]-s*(Ur[v]-Ul[v]));
-}
 #pragma omp end declare target
-#ifdef MUSCL
-#define RECON muscl
-#else
-#define RECON weno5
-#endif
-#ifdef RUSANOV
-#define RIEMANN rusanov
-#else
-#define RIEMANN hllc
-#endif
 
 // ---- kernels
 static void prim(const real*q){                                        // conserved -> primitive over the whole padded block
@@ -114,10 +83,10 @@ static void face(int d){                                               // flux t
   FOR3(i0,j0,k0,){
     const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); const int P[5]={0,1+d,1+(d+1)%3,1+(d+2)%3,4};   // face-normal frame
     real L[5],R[5],f[5];
-    for(int v=0;v<5;v++){ const real*u=w+P[v]*nc+c; L[v]=RECON(u[-2*s],u[-s],u[0],u[s],u[2*s]); R[v]=RECON(u[3*s],u[2*s],u[s],u[0],u[-s]); }
+    for(int v=0;v<5;v++){ const real*u=w+P[v]*nc+c; L[v]=weno5(u[-2*s],u[-s],u[0],u[s],u[2*s]); R[v]=weno5(u[3*s],u[2*s],u[s],u[0],u[-s]); }
     if(L[0]<=0||L[4]<=0) for(int v=0;v<5;v++) L[v]=w[P[v]*nc+c];        // positivity fallback: first order
     if(R[0]<=0||R[4]<=0) for(int v=0;v<5;v++) R[v]=w[P[v]*nc+c+s];
-    RIEMANN(L,R,gam,f);
+    hllc(L,R,gam,f);
     if(mu>0){                                                            // viscous stress and heat flux at the face, 2nd-order central
       const long st[3]={1,sx,sy}; const real h[3]={h0,h1,h2}; real du[3][3], div=0;
       for(int a=0;a<3;a++) for(int b=0;b<3;b++){ const real*u=w+(1+a)*nc+c; const long t=st[b];

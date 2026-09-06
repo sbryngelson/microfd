@@ -27,7 +27,7 @@ Line budget: about 600 lines of C including MPI and I/O.
 | Offload | OpenMP 5 `target teams loop` and `target data`. No vendor API calls. |
 | Generic | Runtime-configurable problems. Fixed 5-equation Navier-Stokes, ideal gas. |
 | Physics | Navier-Stokes with constant viscosity and Prandtl number. Euler is `mu=0`. |
-| Precision | `typedef double real`, `-DFLOAT` switches to single. |
+| Precision | `typedef double real`. Double only. |
 | Parallelism | MPI 3D Cartesian decomposition, one rank per GPU, GPU-aware halo exchange. |
 | Reference perf | Published numbers, not reruns of other codes. See section 8. |
 
@@ -131,8 +131,6 @@ One `face` function serves all three directions through the stride argument.
   differences of the two adjacent cells. This needs diagonal neighbors,
   which the sequential halo exchange provides. Stress tensor with Stokes
   hypothesis, heat flux `-k dT/dn` with `k = cp mu / Pr`.
-- Compile-time alternatives, each under 15 lines: `-DMUSCL` (van Leer
-  limiter) replaces WENO5-Z, `-DRUSANOV` replaces HLLC.
 
 ### Boundary conditions
 
@@ -247,7 +245,6 @@ Targets:
 |---|---|---|
 | Must | below 12 | beats STREAmS-2 WENO5 and MFC per-cell like for like |
 | Goal | below 7 | roughly 2x STREAmS-2 WENO5, about 140M cell updates per second |
-| MUSCL build | below 4 | shows the code is bandwidth-bound once WENO arithmetic is removed |
 
 Caveat: the A100 here is the 80GB PCIe part with about 25 percent more HBM
 bandwidth than the 40GB card STREAmS-2 used. The Goal level accounts for
