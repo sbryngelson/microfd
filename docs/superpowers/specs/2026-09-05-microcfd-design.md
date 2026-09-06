@@ -40,14 +40,16 @@ mpicc (nvc)       -O3 -mp=gpu -gpu=cc80,mem:separate        # NVIDIA
 mpicc (amdclang)  -O3 -fopenmp --offload-arch=gfx90a        # AMD
 ```
 
-On this machine the MPI is the HPC-X Open MPI bundled with the NVIDIA HPC
-SDK. Its UCX path silently corrupts device-buffer messages here, and the
-`smcuda` BTL's CUDA IPC path corrupts every cross-GPU message after the first.
-With CUDA IPC disabled, `ob1` plus `smcuda` exchanges device buffers correctly
-on repeated exchanges across all four GPUs. Runs use:
+On this machine (wingtip-gpu3, 4x A100 PCIe) direct GPU-to-GPU copies are
+corrupt whenever peer access is enabled (verified with plain `cudaMemcpyPeer`
+after `cudaDeviceEnablePeerAccess`: every transfer out of GPU 0 or 1 is 100
+percent wrong), a platform fault for the administrator. Any MPI transport that
+uses CUDA IPC therefore returns garbage. UCX with `cuda_ipc` excluded stages
+device buffers through pinned host memory and is correct on 1, 2, 4 and 8
+ranks, and 2.5x faster than the `smcuda` IPC-off fallback. Runs use:
 
 ```
-mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca btl_smcuda_use_cuda_ipc 0 --mca coll_hcoll_enable 0
+mpirun --mca coll_hcoll_enable 0 --mca pml ucx -x UCX_TLS=^cuda_ipc
 ```
 
 Only constructs that both nvc and amdclang handle well are used:
