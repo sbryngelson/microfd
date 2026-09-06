@@ -12,9 +12,10 @@ So - faster than the best reference times.
 
 <img src="tgv.webp" width="450" alt="Taylor-Green vortex at Re 1600, 256^3, t = 0 to 10">
 
-Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA, AMD, and Intel GPUs; GPU-aware MPI.
+Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms  
+OMP target offload to NVIDIA, AMD, and Intel GPUs, GPU-aware MPI
 
-__Has:__ Uniform Cartesian grid, single-species ideal gas, Explicit time stepping.  
+__Has:__ Uniform Cartesian grid, single-species ideal gas, explicit time stepping.  
 __Has not:__ AMR, immersed boundaries, reactions, turbulence models, etc.
 
 Code snippet. Reconstruction and time step update:
