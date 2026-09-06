@@ -1,6 +1,6 @@
 # microfd
 
-[![ci](https://github.com/sbryngelson/microcfd/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/microcfd/actions/workflows/ci.yml)
+[![ci](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml)
 ![C11](https://img.shields.io/badge/C11-single%20file-blue)
 ![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
 ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD-green)
