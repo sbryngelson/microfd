@@ -4,13 +4,13 @@
 ![Lines of Code](sloc.svg)
 ![C11](https://img.shields.io/badge/C11-single%20file-blue)
 ![OpenMP](https://img.shields.io/badge/OpenMP-target%20offload-orange)
-![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD-lightgrey)
+![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD%20%7C%20Intel-lightgrey)
 
 How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in one short C file: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
 
 <img src="tgv.webp" width="450" alt="Taylor-Green vortex at Re 1600, 256^3, t = 0 to 10">
 
-Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA and AMD GPUs; MPI across GPUs. The solver stays under 300 lines; CI fails a commit that crosses it.
+Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA, AMD, and Intel GPUs; MPI across GPUs. The solver stays under 300 lines; CI fails a commit that crosses it.
 
 The reconstruction and the time step, as they appear in the file:
 ```c
@@ -33,6 +33,7 @@ static void update(double*out,double a,const double*qa,double b,const double*qb,
 ```
 make                     # NVIDIA
 make amd ARCH=gfx90a     # AMD
+make pvc                 # Intel GPU Max (icx + Level Zero, requires iimpi)
 make cpu                 # host, no offload: same answers, slowly
 mpirun -np 4 ./microfd case=tgv nx=256 ny=256 nz=256 tend=10 nout=500
 make test
@@ -64,6 +65,7 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 | microfd | A100 80GB | 256^3 | 3.92 |
 | microfd | MI250X, one GCD | 592^3 | 4.51 |
 | microfd | MI210 | 576^3 | 4.55 |
+| microfd | GPU Max 1100 | 512^3 | 5.13 |
 | PyFR 2.0.3, compressible, p7 tets | GH200 | 13.9M elements, 120 DoF each | 80 per element |
 | MFC, normalized to 5 PDEs | A100 | 8M cells | 8.9 |
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 |
@@ -71,8 +73,6 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 | JAX-Fluids 2.0, WENO5-Z + HLLC | A100 | 8 × 320^3 | 58.0 |
 
 Published rows: Witherden et al. 2024 (6.0 GDoF/s per RHS evaluation, four per step assumed), Wilfong et al. 2024, Sathyanarayana et al. 2023, Min et al. 2023 (Table 1), Bezgin et al. 2024 (Table 9). Lines are tokei code lines of each solver's source directory.
-
-Each step moves about 1.7 KB per cell through memory (three stages of primitives, fluxes and the update), so 1.20 ns is 1.4 TB/s sustained on the MI350X and 3.92 ns is 440 GB/s on the A100: 18 and 23 percent of peak bandwidth.
 
 ## Not in here
 Uniform Cartesian grids only. Single-species ideal gas. Explicit time stepping. Formally second order in 3D despite the fifth-order reconstruction. No adaptive refinement, immersed boundaries, chemistry, or turbulence models.
