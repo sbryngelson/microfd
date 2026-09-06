@@ -176,7 +176,7 @@ static void halo(real*q){
     exchange(d,m,s0,s1,r0,r1);
     #pragma omp target update to(r0[0:m],r1[0:m])
 #else
-    #pragma omp target data use_device_addr(s0,s1,r0,r1)
+    #pragma omp target data use_device_ptr(s0,s1,r0,r1)
     exchange(d,m,s0,s1,r0,r1);
 #endif
     for(int s=0;s<2;s++) g.nb[d][s]==MPI_PROC_NULL ? slab(q,d,s,g.bc[d]==1?WALL:OUTFLOW,0) : slab(q,d,s,UNPACK,g.rbuf[s]);
