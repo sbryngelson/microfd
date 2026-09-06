@@ -82,8 +82,8 @@ Device-resident arrays per rank, 5 fields each:
 | w   | primitives: rho, u, v, w, p | whole run |
 | F   | face fluxes for the current direction | whole run, reused |
 
-Plus six halo send and six receive buffers, sized for the largest face
-times 5 fields times NG layers.
+Plus two send and two receive halo buffers, sized to the largest face and
+reused per direction, times 5 fields times NG layers.
 
 Memory per cell: 25 doubles = 200 B. A 512^3 block per rank is 27 GB.
 
@@ -175,13 +175,13 @@ are an error.
 
 Each built-in case is one C function of about 8 lines that sets the
 primitive state at a point and the case defaults. Sod takes an axis via
-`axis=x|y|z`. Adding a case means adding one such function and one line in
+`axis=0|1|2`. Adding a case means adding one such function and one line in
 the dispatch table.
 
 ## 6. Output
 
-- Diagnostics to stdout every `ndiag` steps: step, t, dt, total kinetic
-  energy, enstrophy (TGV), max Mach, and wall time per step.
+- Diagnostics to stdout every `ndiag` steps: step, t, dt, mean kinetic
+  energy per cell, enstrophy (TGV), max Mach, and wall time per step.
 - Fields every `nout` steps: one raw binary file for the whole domain,
   written collectively with `MPI_File_write_at_all` using a subarray type.
   Layout is `[5][nz][ny][nx]` double, little-endian, no header.

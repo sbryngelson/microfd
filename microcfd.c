@@ -203,7 +203,7 @@ int main(int argc,char**argv){
   if(g.ndiag<1) g.ndiag=1;                    // after parsing: ndiag=0 would divide by zero in the step test
 
   int np,per[3],lr; MPI_Comm loc; MPI_Comm_size(MPI_COMM_WORLD,&np); MPI_Dims_create(np,3,g.dims);
-  for(int d=0;d<3;d++) per[d]=g.bc[d]==0;
+  for(int d=0;d<3;d++){ if(g.bc[d]<0||g.bc[d]>2) die("bc must be 0, 1 or 2"); per[d]=g.bc[d]==0; }
   MPI_Cart_create(MPI_COMM_WORLD,3,g.dims,per,1,&g.comm); MPI_Comm_rank(g.comm,&g.rank); MPI_Cart_coords(g.comm,g.rank,3,g.coords);
   for(int d=0;d<3;d++){ MPI_Cart_shift(g.comm,d,1,&g.nb[d][0],&g.nb[d][1]);
     if(g.N[d]%g.dims[d]) die("grid not divisible by ranks"); g.n[d]=g.N[d]/g.dims[d]; if(g.n[d]<NG) die("need at least 3 cells per rank per direction");
@@ -225,7 +225,7 @@ int main(int argc,char**argv){
 
   real dt=0; int step=0, ls=0; double tl=MPI_Wtime();
   for(;;){
-    if(step%g.ndiag==0||g.t>=g.tend){ halo(g.q); prim(g.q); diag(step,dt,(MPI_Wtime()-tl)/(step>ls?step-ls:1)); tl=MPI_Wtime(); ls=step; if(g.nout&&(step%g.nout==0||g.t>=g.tend)) output(step); }
+    { const int dd=step%g.ndiag==0||g.t>=g.tend, oo=g.nout&&(step%g.nout==0||g.t>=g.tend); if(dd||oo){ halo(g.q); prim(g.q); } if(dd){ diag(step,dt,(MPI_Wtime()-tl)/(step>ls?step-ls:1)); tl=MPI_Wtime(); ls=step; } if(oo) output(step); }
     if(g.t>=g.tend) break;
     dt=g.cfl/wavemax(); if(!(dt>0)) die("non-finite time step"); if(g.t+dt>g.tend) dt=g.tend-g.t;
     rhs_eval(g.q);  update(g.q1,1,g.q,0,g.q,dt);                        // SSP-RK3, two registers

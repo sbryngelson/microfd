@@ -126,7 +126,7 @@ def switches():   # every compile-time switch builds and passes Sod at a looser 
         for x, tol in (("-DHOST_MPI", "1e-2"),):
             mk(x)
             p = subprocess.run([sys.executable, "test.py", "sod"], cwd=R, env=dict(os.environ, SOD_TOL=tol), text=True, capture_output=True)
-            print(f"[{x}] " + p.stdout.strip().splitlines()[-1]); ok(p.returncode == 0, x)
+            print(f"[{x}] " + (p.stdout.strip().splitlines() or [p.stderr.strip()[-300:]])[-1]); ok(p.returncode == 0, x)
     finally: mk("")
     print("PASS switches")
 

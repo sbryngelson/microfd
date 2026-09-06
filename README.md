@@ -10,9 +10,12 @@ compiler with OpenMP offload and MPI. Tests use Python + numpy.
 
 ## Build
 
+Put the compiler and MPI `bin` directories on `PATH` first (NVIDIA HPC SDK: `.../compilers/bin` and `.../comm_libs/mpi/bin`), or `make` picks up a different `mpicc`.
+
 ```
 make            # NVIDIA: nvc, ARCH=cc80 default
 make amd ARCH=gfx90a
+MK="amd ARCH=gfx90a" make test   # build and test the AMD binary; switches rebuilds with the same MK
 ```
 
 One compile-time switch via `EXTRA` (use `make -B` to force the rebuild):
@@ -40,8 +43,14 @@ Options are `key=value`. Unknown keys are an error.
 | nout | steps between field outputs, 0 = never | 0 |
 | axis | shock-tube axis for sod | 0 |
 
+Ranks pick GPUs by node-local rank modulo the visible device count, so
+`CUDA_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES` control placement; with one
+visible device all ranks share it, which is correct but slow and invalidates
+a scaling run.
+
 Diagnostics go to stdout: `step t dt KE enstrophy maxMach ns_per_cell_step`
-(mean KE and enstrophy per cell). Fields go to `out_NNNNNN.bin` as
+(mean KE and enstrophy per cell) (`maxMach` and `dt` are those of the
+previous step). Fields go to `out_NNNNNN.bin` as
 `[5][nz][ny][nx]` doubles (rho, u, v, w, p) with an
 `out_NNNNNN.xmf` wrapper that ParaView opens directly.
 
