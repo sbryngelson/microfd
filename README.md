@@ -1,5 +1,9 @@
 # microfd
-3D compressible Navier-Stokes in one C file: finite volume on a uniform grid, WENO5-Z, HLLC, SSP-RK3, 2nd-order viscous terms, reflective free-slip adiabatic walls. Dimension-by-dimension, one Riemann solve per face, so formally 2nd order in multi-D with a WENO5 error constant. OpenMP target offload on NVIDIA and AMD, MPI decomposition, double precision. Needs a C compiler with offload, MPI, and Python + numpy for tests.
+How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in 237 lines of C: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
+
+![Taylor-Green vortex, Re 1600, 256^3, t = 9: Q-criterion isosurfaces colored by vorticity magnitude](tgv.png)
+
+Finite volume on a uniform grid, WENO5-Z, HLLC, SSP-RK3, 2nd-order viscous terms, reflective free-slip adiabatic walls. Dimension-by-dimension, one Riemann solve per face, so formally 2nd order in multi-D with a WENO5 error constant. OpenMP target offload on NVIDIA and AMD, MPI decomposition, double precision. Needs a C compiler with offload, MPI, and Python + numpy for tests.
 
 ## Build
 ```
@@ -44,3 +48,6 @@ TGV, viscous, one full SSP-RK3 step, each GPU at its fastest measured grid; publ
 | STREAmS-2, WENO5 | A100 40GB | 33.6M points | 14.2 | 14.2 | Sathyanarayana et al. 2023 |
 
 Grid size shifts these, and not in the same direction on every GPU: MI350X 1.51 at 256^3, MI300X 1.54 at 856^3 (143 of 191 GiB), A100 4.04 at 640^3 (262M cells, 63 of 80 GiB). MI300X and the A100 are fastest at 256^3; the others at fill size. MI350X strong scaling at 976^3: 1.20, 0.65, 0.34, 0.15 on 1, 2, 4, 8 GPUs; MI300X at 856^3: 1.53, 0.77, 0.40, 0.20. A100 weak scaling: 3.92, 4.27 (92%), 5.34 (73%) per GPU on 1, 2, 4. Memory is 240 B per cell, 30 fields of 8 B: a 64 GiB GPU holds roughly 630^3, a 287 GiB GPU 1050^3.
+
+## License
+Apache-2.0.
