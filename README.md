@@ -8,7 +8,7 @@
 
 How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stokes solver in one short C file: 1.2 ns per cell per step on one MI350X, 3.9 on one A100.
 
-![Taylor-Green vortex at Re 1600, 256^3](tgv.webp)
+![Taylor-Green vortex at Re 1600, 256^3, t = 0 to 10](tgv.webp)
 
 Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA and AMD GPUs; MPI across GPUs. The solver stays under 300 lines; CI fails a commit that crosses it.
 
