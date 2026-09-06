@@ -10,7 +10,7 @@ nvidia: microcfd.c
 amd: microcfd.c
 	OMPI_CC=amdclang MPICH_CC=amdclang $(MPICC) $(AMDFLAGS) $(EXTRA) $< -o microcfd -lm
 test: nvidia
-	cd tests && for t in test_*.py; do python3 $$t || exit 1; done
+	cd tests && python3 test.py
 clean:
 	rm -rf microcfd tests/run *.bin *.xmf
 .PHONY: nvidia amd test clean

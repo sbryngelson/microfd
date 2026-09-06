@@ -12,8 +12,8 @@ def run(name, np_=1, **o):   # -> (diag rows [step t dt KE enstrophy maxMach ns/
                        cwd=d, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if p.returncode: raise SystemExit(f"microcfd failed ({p.returncode}):\n{p.stdout}")
     diag = np.array([list(map(float, l.split())) for l in p.stdout.splitlines() if l and l[0].isdigit()])
-    f, s = sorted(glob.glob(str(d / "out_*.bin"))), (5, o["nz"], o["ny"], o["nx"])
-    return (diag, *(np.fromfile(b, np.float64).reshape(s) for b in (f[0], f[-1])))
+    f, s = sorted(glob.glob(str(d / "out_*.bin"))) or [None, None], (5, *(o.get(k, 64) for k in ("nz", "ny", "nx")))
+    return (diag, *(np.fromfile(b, np.float64).reshape(s) if b else None for b in (f[0], f[-1])))
 
 def exact_rho(x, t, g=1.4, x0=0.5):              # exact Riemann density for Sod, ideal gas (Toro ch. 4)
     rl, ul, pl, rr, ur, pr = 1.0, 0.0, 1.0, 0.125, 0.0, 0.1
@@ -49,7 +49,7 @@ def ic():
     ok(np.array_equal(q1, q2), "fields identical on 1 and 2 ranks")
     x = ctr(-np.pi, 2 * np.pi, 32); X, Y, Z = np.meshgrid(x, x, x, indexing="ij")   # X along axis 0 = nx
     ok(np.allclose(q1[0], 1.0) and np.allclose(q1[1], (np.sin(X) * np.cos(Y) * np.cos(Z)).transpose(2, 1, 0),
-       atol=1e-12), "rho and u match the analytic IC")
+                                               atol=1e-12), "rho and u match the analytic IC")
     xmf = (R / "run/ic1/out_000000.xmf").read_text()
     ok("out_000000.bin" in xmf and 'Dimensions="32 32 32"' in xmf, "XDMF written")
     print("PASS ic")
