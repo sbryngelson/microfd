@@ -1,4 +1,4 @@
-# microcfd tests: python3 test.py [ic sod vortex wall mpi]
+# microcfd tests: python3 test.py [ic sod vortex wall mpi visc tgv3d]
 import os, sys, glob, shutil, subprocess, pathlib, numpy as np
 R = pathlib.Path(__file__).resolve().parent
 MPIRUN = os.environ.get("MPIRUN", "mpirun --mca pml ob1 --mca btl smcuda,self,vader"
@@ -81,7 +81,7 @@ def vortex():
     print("PASS vortex")
 
 def wall():
-    n, o = 32, dict(case="sedov", tend=0.05, nout=10**6, ndiag=10**6)
+    n, o = 32, dict(case="sedov", mu=0.005, tend=0.05, nout=10**6, ndiag=10**6)
     qf = run("sedov_full", 1, nx=2*n, ny=2*n, nz=2*n, **o)[2][:, n:, n:, n:]
     qo = run("sedov_oct", 1, nx=n, ny=n, nz=n, x0=0, y0=0, z0=0, lx=1.2, ly=1.2, lz=1.2, bcx=1, bcy=1, bcz=1, **o)[2]
     ok(np.isfinite(qf).all() and np.isfinite(qo).all(), "finite fields")
@@ -101,7 +101,10 @@ def visc():   # 2D TGV Re=10: KE decays as exp(-4 nu t) to 1 percent; 3D TGV at 
     d = run("tgv2d", 1, case="tgv2d", nx=64, ny=64, nz=4, nout=10**6, ndiag=10**6)[0]
     r, ex = d[-1, 3] / d[0, 3], np.exp(-0.4); print(f"2D KE(1)/KE(0) = {r:.5f}, exact {ex:.5f}"); ok(abs(r / ex - 1) < 0.01, "2D viscous decay")
     d = run("tgv3d_stokes", 1, case="tgv", mu=10, nx=64, ny=64, nz=64, tend=0.02, ndiag=10**6)[0]
-    r, ex = d[-1, 3] / d[0, 3], np.exp(-1.2); print(f"3D KE ratio = {r:.5f}, exact {ex:.5f}"); ok(abs(r / ex - 1) < 2e-3, "3D Stokes decay"); print("PASS visc")
+    r, ex = d[-1, 3] / d[0, 3], np.exp(-1.2); print(f"3D KE ratio = {r:.5f}, exact {ex:.5f}"); ok(abs(r / ex - 1) < 2e-3, "3D Stokes decay")
+    d = run("acoustic", 1, case="acoustic", nx=64, ny=4, nz=4, ndiag=10**6)[0]   # right-running wave, eps=1e-3, mu=0.05, Pr=0.71, t=4
+    r, ex = d[-1, 3] / d[0, 3], np.exp(-(4 / 3 * 0.05 + 0.4 * 0.05 / 0.71) * 4)   # classical absorption: KE ~ exp(-k^2 [4/3 nu + (gamma-1) nu/Pr] t)
+    print(f"acoustic KE ratio = {r:.5f}, classical {ex:.5f}"); ok(abs(r / ex - 1) < 0.01, "acoustic absorption: bulk stress and conduction"); print("PASS visc")
 
 def tgv3d():   # 3D Taylor-Green Re=1600 at 128^3 vs the 512^3 spectral reference (minutes on one A100)
     ref = np.loadtxt(R / "ref/spectral_Re1600_512.gdiag")   # t, KE, -dKE/dt, enstrophy

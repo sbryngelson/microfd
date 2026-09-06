@@ -46,6 +46,7 @@ static void die(const char*m){ fprintf(stderr,"microcfd: %s\n",m); MPI_Abort(MPI
 typedef struct { const char*name; void(*ic)(real,real,real,real*); real o[3],L[3],mu,tend; int bc[3]; } Case;
 static real p0(real ma){ return 1/(g.gamma*ma*ma); }                                   // pressure giving Mach ma for rho=V=1
 static void tgv(real x,real y,real z,real*p){ p[0]=1; p[1]=sin(x)*cos(y)*cos(z); p[2]=-cos(x)*sin(y)*cos(z); p[3]=0; p[4]=p0(C(.1))+(cos(2*x)+cos(2*y))*(cos(2*z)+2)/16; }
+static void acoustic(real x,real y,real z,real*p){ const real e=C(1e-3)*sin(x); p[0]=1+e; p[1]=sqrt(g.gamma)*e; p[2]=p[3]=0; p[4]=1+g.gamma*e; (void)y; (void)z; }
 static void tgv2d(real x,real y,real z,real*p){ p[0]=1; p[1]=sin(x)*cos(y); p[2]=-cos(x)*sin(y); p[3]=0; p[4]=p0(C(.05))+(cos(2*x)+cos(2*y))/4; (void)z; }
 static void sod(real x,real y,real z,real*p){ int l=(g.axis==0?x:g.axis==1?y:z)<C(.5); p[0]=l?1:C(.125); p[1]=p[2]=p[3]=0; p[4]=l?1:C(.1); }
 static void sedov(real x,real y,real z,real*p){ p[0]=1; p[1]=p[2]=p[3]=0; p[4]=x*x+y*y+z*z<C(.01)?(g.gamma-1)/C(4.18879e-3):C(1e-5); }  // E=1 in r<0.1
@@ -53,6 +54,7 @@ static void vortex(real x,real y,real z,real*p){ real b=5,dx=x-5,dy=y-5,f=exp(1-
   p[0]=pow(T,1/(g.gamma-1)); p[1]=1-b*dy*sqrt(f)/(2*M_PI); p[2]=1+b*dx*sqrt(f)/(2*M_PI); p[3]=0; p[4]=p[0]*T; (void)z; }
 static const Case cases[]={
   {"tgv",   tgv,   {-M_PI,-M_PI,-M_PI},{2*M_PI,2*M_PI,2*M_PI},C(1./1600),10,   {0,0,0}},
+  {"acoustic",acoustic,{0,0,0},        {2*M_PI,2*M_PI,2*M_PI},C(.05),    4,    {0,0,0}},
   {"tgv2d", tgv2d, {0,0,0},            {2*M_PI,2*M_PI,2*M_PI},C(.1),     1,    {0,0,0}},
   {"sod",   sod,   {0,0,0},            {1,1,1},               0,         C(.2), {2,2,2}},
   {"sedov", sedov, {-1.2,-1.2,-1.2},   {2.4,2.4,2.4},         0,         C(.1), {2,2,2}},
@@ -107,7 +109,7 @@ static void prim(const real*q){                                        // conser
 }
 
 static void face(int d){                                               // flux through the face c+1/2 normal to d, stored in F at cell c
-  LOCALS; const real gam=g.gamma, mu=g.mu, kap=g.mu*g.gamma/((g.gamma-1)*g.pr), h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
+  LOCALS; const real gam=g.gamma, mu=g.mu, kap=mu*gam/((gam-1)*g.pr), h0=g.h[0],h1=g.h[1],h2=g.h[2]; const real*w=g.w; real*F=g.F;
   const int i0=NG-(d==0), j0=NG-(d==1), k0=NG-(d==2);
   FOR3(i0,j0,k0,){
     const long s=d==0?1:d==1?sx:sy, c=IDX(i,j,k); const int P[5]={0,1+d,1+(d+1)%3,1+(d+2)%3,4};   // face-normal frame
@@ -141,10 +143,10 @@ static void update(real*out,real a,const real*qa,real b,const real*qb,real c){  
 }
 
 static real wavemax(void){                                             // max of sum_d (|u_d|+a)/h_d + 2 nu sum_d 1/h_d^2; also max Mach
-  LOCALS; const real*q=g.q; const real gam=g.gamma,mu=g.mu,h0=g.h[0],h1=g.h[1],h2=g.h[2]; real m=0,ma=0;
+  LOCALS; const real*q=g.q; const real gam=g.gamma,pr=g.pr,mu=g.mu,h0=g.h[0],h1=g.h[1],h2=g.h[2]; real m=0,ma=0;
   FOR3(NG,NG,NG,reduction(max:m,ma)){ const long c=IDX(i,j,k); real r=q[c],u=q[nc+c]/r,v=q[2*nc+c]/r,s=q[3*nc+c]/r;
     real a=sqrt(gam*(gam-1)*(q[4*nc+c]/r-C(.5)*(u*u+v*v+s*s)));
-    m=fmax(m,(fabs(u)+a)/h0+(fabs(v)+a)/h1+(fabs(s)+a)/h2+2*mu/r*(1/(h0*h0)+1/(h1*h1)+1/(h2*h2))); ma=fmax(ma,sqrt(u*u+v*v+s*s)/a); }
+    m=fmax(m,(fabs(u)+a)/h0+(fabs(v)+a)/h1+(fabs(s)+a)/h2+fmax(C(2),gam/pr)*mu/r*(1/(h0*h0)+1/(h1*h1)+1/(h2*h2))); ma=fmax(ma,sqrt(u*u+v*v+s*s)/a); }
   real loc[2]={m,ma}; MPI_Allreduce(MPI_IN_PLACE,loc,2,REAL_T,MPI_MAX,g.comm); g.mach=loc[1]; return loc[0];
 }
 
