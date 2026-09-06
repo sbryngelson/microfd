@@ -33,12 +33,19 @@ Line budget: about 600 lines of C including MPI and I/O.
 
 ## 1. Toolchain
 
-One Makefile, one source, three build lines:
+One Makefile, one source, two build lines. GPU only, MPI always:
 
 ```
-CC=mpicc OMPI_CC=nvc      CFLAGS="-O3 -mp=gpu -gpu=cc80"                # NVIDIA
-CC=mpicc OMPI_CC=amdclang CFLAGS="-O3 -fopenmp --offload-arch=gfx90a"    # AMD
-CC=mpicc OMPI_CC=gcc      CFLAGS="-O3 -fopenmp"                          # CPU fallback
+mpicc (nvc)       -O3 -mp=gpu -gpu=cc80,mem:separate        # NVIDIA
+mpicc (amdclang)  -O3 -fopenmp --offload-arch=gfx90a        # AMD
+```
+
+On this machine the MPI is the HPC-X Open MPI bundled with the NVIDIA HPC
+SDK. Its UCX path silently corrupts device-buffer messages here, while the
+`ob1` PML with the `smcuda` BTL exchanges device buffers correctly. Runs use:
+
+```
+mpirun --mca pml ob1 --mca btl smcuda,self,vader --mca coll_hcoll_enable 0
 ```
 
 Only constructs that both nvc and amdclang handle well are used:
@@ -48,7 +55,7 @@ No `declare target` functions with recursion, no device-side malloc,
 no atomics in hot loops.
 
 Verification platforms: 4x A100 80GB PCIe here (NVIDIA HPC SDK 25.11), and
-the user's AMD machine for the ROCm build.
+the user's AMD machine for the ROCm build. There is no CPU build.
 
 ## 2. Data layout
 
@@ -125,8 +132,8 @@ One `face` function serves all three directions through the stride argument.
 
 ### Boundary conditions
 
-Chosen per axis at runtime: `periodic`, `wall` (reflective, adiabatic), or
-`outflow` (zero gradient). Periodic is handled entirely by the Cartesian
+Chosen per axis at runtime as an integer: 0 periodic, 1 wall (reflective,
+adiabatic), 2 outflow (zero gradient). Periodic is handled entirely by the Cartesian
 communicator. Wall and outflow are applied by a ghost-fill kernel on ranks
 whose neighbor in that direction is `MPI_PROC_NULL`.
 
@@ -151,7 +158,7 @@ are an error.
 
 | Key | Meaning | Default |
 |---|---|---|
-| case | tgv, sod, sedov, vortex | tgv |
+| case | tgv, tgv2d, sod, sedov, vortex | tgv |
 | nx ny nz | global cells | 64 64 64 |
 | lx ly lz | domain lengths | 2pi each |
 | px py pz | rank decomposition, 0 means auto | 0 |
@@ -160,7 +167,7 @@ are an error.
 | pr | Prandtl number | 0.71 |
 | cfl | CFL number | 0.5 |
 | tend | end time | case default |
-| bcx bcy bcz | periodic, wall, outflow | case default |
+| bcx bcy bcz | 0 periodic, 1 wall, 2 outflow | case default |
 | nout | steps between outputs | 0 means never |
 | ndiag | steps between diagnostics lines | 10 |
 
@@ -188,10 +195,10 @@ outputs. Python is a test dependency only. The code has no Python dependency.
 |---|---|---|
 | Sod x, y, z | density vs exact Riemann solution at t=0.2 | L1 error below fixed threshold, identical across axes to roundoff |
 | Isentropic vortex | L2 error vs exact after one period, at 32, 64, 128 cells | observed order at least 3 |
-| TGV Re 1600, Ma 0.1 | kinetic energy dissipation rate vs HiOCFD reference at 64^3 and 128^3 | peak dissipation within 5 percent at 128^3, correct peak time |
-| Wall BC | Sod against a reflecting wall | symmetric solution, mass conserved to roundoff |
+| 2D Taylor-Green, Re 10, Ma 0.05 | kinetic energy decay vs exact exp(-4 nu t) at t=1 | within 1 percent |
+| TGV Re 1600, Ma 0.1 | kinetic energy dissipation rate vs the 512^3 spectral reference at 128^3 | peak dissipation within 10 percent, peak time within 0.6 |
+| Wall BC | Sedov in one octant with walls vs full domain | octant matches the full run's octant to 1e-8 |
 | MPI | TGV 64^3 on 1 rank vs 8 ranks for 50 steps | fields agree to roundoff |
-| CPU build | Sod on gcc build vs nvc build | identical output |
 | Perf | TGV 256^3 on 1 A100, 100 steps | ns per cell per step, reported, compared to section 8 |
 | Weak scaling | TGV 256^3 per rank on 1, 2, 4 A100s | efficiency reported |
 
