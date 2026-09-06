@@ -89,7 +89,7 @@ static void face(int d){                                               // flux t
     hllc(L,R,gam,f);
     if(mu>0){                                                            // viscous stress and heat flux at the face, 2nd-order central
       const long st[3]={1,sx,sy}; const real h[3]={h0,h1,h2}; real du[3][3], div=0;
-      for(int a=0;a<3;a++) for(int b=0;b<3;b++){ const real*u=w+(1+a)*nc+c; const long t=st[b];
+      for(int a=0;a<3;a++) for(int b=0;b<3;b++) if(a==b||a==d||b==d){ const real*u=w+(1+a)*nc+c; const long t=st[b];   // off-normal off-diagonal terms are dead
         du[a][b]= b==d ? (u[s]-u[0])/h[d] : (u[t]-u[-t]+u[s+t]-u[s-t])/(4*h[b]); }  // normal: two cells; tangential: averaged central
       for(int a=0;a<3;a++) div+=du[a][a];
       f[4]-=kap*(w[4*nc+c+s]/w[c+s]-w[4*nc+c]/w[c])/h[d];                              // heat flux with T = p/rho
