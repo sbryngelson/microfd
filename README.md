@@ -10,7 +10,24 @@ How short can a very fast CFD code be? microfd is a 3D compressible Navier-Stoke
 
 ![Taylor-Green vortex at Re 1600, 256^3](tgv.webp)
 
-Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA and AMD GPUs; MPI across GPUs.
+Finite volume, WENO5-Z, HLLC, SSP-RK3, viscous terms; OpenMP offload to NVIDIA and AMD GPUs; MPI across GPUs. The solver stays under 300 lines; CI fails a commit that crosses it.
+
+The reconstruction and the time step, as they appear in the file:
+```c
+static real weno5(real a,real b,real c,real d,real e){                 // WENO5-Z
+  real b0=C(13./12)*(a-2*b+c)*(a-2*b+c)+C(.25)*(a-4*b+3*c)*(a-4*b+3*c);
+  real b1=C(13./12)*(b-2*c+d)*(b-2*c+d)+C(.25)*(b-d)*(b-d);
+  real b2=C(13./12)*(c-2*d+e)*(c-2*d+e)+C(.25)*(3*c-4*d+e)*(3*c-4*d+e);
+  real t=fabs(b0-b2), w0=C(.1)*(1+t/(b0+EPS)), w1=C(.6)*(1+t/(b1+EPS)), w2=C(.3)*(1+t/(b2+EPS));
+  return (w0*(2*a-7*b+11*c)+w1*(-b+5*c+2*d)+w2*(2*c+5*d-e))/(6*(w0+w1+w2));
+}
+static void update(real*out,real a,const real*qa,real b,const real*qb,real c){   // out = a qa + b qb - c div F
+  LOCALS; const real*F=g.F; const real h0=g.h[0],h1=g.h[1],h2=g.h[2]; const size_t m=NV*nc;
+  FOR3(NG,NG,NG,){ const long ci=IDX(i,j,k);
+    for(int v=0;v<5;v++){ const size_t o=v*nc+ci;
+      out[o]=a*qa[o]+b*qb[o]-c*((F[o]-F[o-1])/h0+(F[m+o]-F[m+o-sx])/h1+(F[2*m+o]-F[2*m+o-sy])/h2); } }
+}
+```
 
 ## Build and run
 ```
@@ -36,6 +53,8 @@ Output: `out_NNNNNN.bin` with `rho u v w p` as `[5][nz][ny][nx]` doubles, plus a
 `make cpu` drops `--offload-arch`, so the `target` regions run on the host and give the same answers. CI builds that way and runs `ic sod wall`, so a green badge covers the numerics and the MPI decomposition, not the offload path.
 
 ## Performance
+![Lines of code against time per cell-update](loc_vs_speed.svg)
+
 Taylor-Green, viscous, double precision, ns per cell per step:
 
 | | GPU | grid | ns |
@@ -47,6 +66,11 @@ Taylor-Green, viscous, double precision, ns per cell per step:
 | microfd | MI210 | 576^3 | 4.55 |
 | MFC (Wilfong et al. 2024) | A100 | 8M cells | 8.9 |
 | STREAmS-2 (Sathyanarayana et al. 2023) | A100 40GB | 33.6M points | 14.2 |
+
+Each step moves about 1.7 KB per cell through memory (three stages of primitives, fluxes and the update), so 1.20 ns is 1.4 TB/s sustained on the MI350X and 3.92 ns is 440 GB/s on the A100: 18 and 23 percent of peak bandwidth.
+
+## Not in here
+Uniform Cartesian grids only. Single-species ideal gas. Explicit time stepping. Formally second order in 3D despite the fifth-order reconstruction. No adaptive refinement, immersed boundaries, chemistry, or turbulence models.
 
 ## License
 Apache-2.0
