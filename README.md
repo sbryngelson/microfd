@@ -1,7 +1,7 @@
 # microfd
 
 [![ci](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/microfd/actions/workflows/ci.yml)
-![Lines of Code](sloc.svg)
+![Lines of Code](.github/sloc.svg)
 ![GPU](https://img.shields.io/badge/GPU-NVIDIA%20%7C%20AMD%20%7C%20Intel-lightgrey)
 [![License](https://img.shields.io/badge/License-Apache%202.0-purple.svg)](https://opensource.org/licenses/Apache-2.0)
 

@@ -26,9 +26,9 @@ jobs:
           <text x="{lw/2:.1f}" y="15" fill="#010101" fill-opacity=".3">{L}</text><text x="{lw/2:.1f}" y="14">{L}</text>
           <text x="{lw+rw/2:.1f}" y="15" fill="#010101" fill-opacity=".3">{R}</text><text x="{lw+rw/2:.1f}" y="14">{R}</text></g></svg>
           '''
-          open("sloc.svg", "w").write(svg); print("SLOC", n)
+          open(".github/sloc.svg", "w").write(svg); print("SLOC", n)
           PY
       - name: commit the badge if it changed
         run: |
           git config user.name github-actions && git config user.email github-actions@github.com
-          git add sloc.svg && git diff --cached --quiet || (git commit -m "sloc badge" && git push)
+          git add .github/sloc.svg && git diff --cached --quiet || (git commit -m "sloc badge" && git push)
